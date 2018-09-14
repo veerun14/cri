@@ -86,6 +86,12 @@ func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandbox
 		return nil, errors.Wrapf(err, "failed to get sandbox image %q", imageName)
 	}
 
+	// Setup Networking
+	err = c.setupPodNetwork(&sandbox)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to setup networking for sandbox %q", id)
+	}
+
 	ociRuntime, err := c.getSandboxRuntime(config)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get sandbox runtime")
@@ -272,6 +278,7 @@ func (c *criService) generateSandboxContainerSpec(id string, config *runtime.Pod
 		// initialize the Windows.HyperV section which is really all we want.
 		g.SetWindowsHypervUntilityVMPath("")
 	}
+	g.SetWindowsNetworkNamespace(nsPath)
 
 	// Set hostname.
 	g.SetHostname(config.GetHostname())
@@ -280,11 +287,6 @@ func (c *criService) generateSandboxContainerSpec(id string, config *runtime.Pod
 	g.AddAnnotation(annotations.SandboxID, id)
 
 	return g.Config, nil
-}
-
-// untrustedWorkload returns true if the sandbox contains untrusted workload.
-func untrustedWorkload(config *runtime.PodSandboxConfig) bool {
-	return config.GetAnnotations()[annotations.UntrustedWorkload] == "true"
 }
 
 // getSandboxRuntime returns the runtime configuration for sandbox.
