@@ -101,11 +101,12 @@ func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandbox
 	sandboxLabels := buildLabels(config.Labels, containerKindSandbox)
 
 	opts := []containerd.NewContainerOpts{
+		containerd.WithImage(image.Image),
 		containerd.WithSnapshotter(c.getDefaultSnapshotterForSandbox(config)),
 		customopts.WithNewSnapshot(id, image.Image),
-		containerd.WithSpec(spec),
 		containerd.WithContainerLabels(sandboxLabels),
 		containerd.WithContainerExtension(sandboxMetadataExtension, &sandbox.Metadata),
+		containerd.WithSpec(spec),
 		containerd.WithRuntime(ociRuntime.Type, nil)}
 
 	container, err := c.client.NewContainer(ctx, id, opts...)
@@ -275,6 +276,10 @@ func (c *criService) generateSandboxContainerSpec(id string, config *runtime.Pod
 
 	// Set hostname.
 	g.SetHostname(config.GetHostname())
+
+	if !isWindowsLcow(config) {
+		g.SetProcessUsername(imageConfig.User)
+	}
 
 	g.AddAnnotation(annotations.ContainerType, annotations.ContainerTypeSandbox)
 	g.AddAnnotation(annotations.SandboxID, id)
