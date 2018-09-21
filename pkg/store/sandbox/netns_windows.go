@@ -48,8 +48,14 @@ func NewNetNS() (*NetNS, error) {
 }
 
 // LoadNetNS loads existing network namespace. It returns ErrClosedNetNS
-// if the network namespace has already been closed.
+// if the network namespace has already been closed or not found.
 func LoadNetNS(path string) (*NetNS, error) {
+	_, err := hcn.GetNamespaceByID(path)
+	if err != nil {
+		// Todo: Check for NotFound error
+		return nil, ErrClosedNetNS
+	}
+
 	return &NetNS{restored: true, path: path}, nil
 }
 
@@ -59,16 +65,18 @@ func (n *NetNS) Remove() error {
 	n.Lock()
 	defer n.Unlock()
 	if !n.closed {
+		hcnNamespace, err := hcn.GetNamespaceByID(n.path)
+		if err != nil {
+			// ToDo: Check for NotFound error & return nil
+			// return failure on every other error
+			return nil
+		}
+		hcnNamespace.Delete()
 		n.closed = true
 	}
 	if n.restored {
 		n.restored = false
 	}
-	hcnNamespace, err := hcn.GetNamespaceByID(n.path)
-	if err != nil {
-		return nil
-	}
-	hcnNamespace.Delete()
 	return nil
 }
 

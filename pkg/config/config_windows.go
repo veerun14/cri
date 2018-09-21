@@ -24,8 +24,8 @@ import "github.com/containerd/containerd"
 func DefaultConfig() PluginConfig {
 	return PluginConfig{
 		CniConfig: CniConfig{
-			NetworkPluginBinDir:       "C:\\containerd\\data\\cni\\bin",
-			NetworkPluginConfDir:      "C:\\containerd\\data\\cni\\config",
+			NetworkPluginBinDir:       "C:\\Program Files\\containerd\\data\\cni\\bin",
+			NetworkPluginConfDir:      "C:\\Program Files\\containerd\\data\\cni\\config",
 			NetworkPluginConfTemplate: "",
 		},
 		ContainerdConfig: ContainerdConfig{
