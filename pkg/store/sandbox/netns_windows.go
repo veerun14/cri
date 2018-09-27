@@ -66,13 +66,12 @@ func (n *NetNS) Remove() error {
 	defer n.Unlock()
 	if !n.closed {
 		hcnNamespace, err := hcn.GetNamespaceByID(n.path)
-		if err != nil {
-			// ToDo: Check for NotFound error & return nil
-			// return failure on every other error
-			return nil
+		if err == nil {
+			hcnNamespace.Delete()
+			n.closed = true
 		}
-		hcnNamespace.Delete()
-		n.closed = true
+		// ToDo: Check for NotFound error & return nil
+		// return failure on every other error
 	}
 	if n.restored {
 		n.restored = false

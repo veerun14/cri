@@ -58,16 +58,3 @@ func (c *criService) doStopPodSandbox(id string, sandbox sandboxstore.Sandbox) e
 
 	return nil
 }
-
-// teardownPod removes the network from the pod
-func (c *criService) teardownPod(id string, path string, config *runtime.PodSandboxConfig) error {
-	if c.netPlugin == nil {
-		return errors.New("cni config not intialized")
-	}
-
-	labels := getPodCNILabels(id, config)
-	return c.netPlugin.Remove(id,
-		path,
-		cni.WithLabels(labels),
-		cni.WithCapabilityPortMap(toCNIPortMappings(config.GetPortMappings())))
-}
