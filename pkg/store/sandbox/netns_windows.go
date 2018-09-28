@@ -19,9 +19,9 @@ limitations under the License.
 package sandbox
 
 import (
-	"math/rand"
 	"sync"
 
+	"github.com/Microsoft/hcsshim/hcn"
 	"github.com/pkg/errors"
 )
 
@@ -38,27 +38,40 @@ type NetNS struct {
 
 // NewNetNS creates a network namespace for the sandbox
 func NewNetNS() (*NetNS, error) {
-	// TODO: JTERRY75 - Plugin cni
-	b := make([]byte, 10)
-	rand.Read(b)
-	return &NetNS{path: string(b)}, nil
+	temp := hcn.HostComputeNamespace{}
+	hcnNamespace, err := temp.Create()
+	if err != nil {
+		return nil, err
+	}
+
+	return &NetNS{path: string(hcnNamespace.Id)}, nil
 }
 
 // LoadNetNS loads existing network namespace. It returns ErrClosedNetNS
-// if the network namespace has already been closed.
+// if the network namespace has already been closed or not found.
 func LoadNetNS(path string) (*NetNS, error) {
-	// TODO: JTERRY75 - Plugin cni
+	_, err := hcn.GetNamespaceByID(path)
+	if err != nil {
+		// Todo: Check for NotFound error
+		return nil, ErrClosedNetNS
+	}
+
 	return &NetNS{restored: true, path: path}, nil
 }
 
 // Remove removes network namepace if it exists and not closed. Remove is idempotent,
 // meaning it might be invoked multiple times and provides consistent result.
 func (n *NetNS) Remove() error {
-	// TODO: JTERRY75 - Plugin cni
 	n.Lock()
 	defer n.Unlock()
 	if !n.closed {
-		n.closed = true
+		hcnNamespace, err := hcn.GetNamespaceByID(n.path)
+		if err == nil {
+			hcnNamespace.Delete()
+			n.closed = true
+		}
+		// ToDo: Check for NotFound error & return nil
+		// return failure on every other error
 	}
 	if n.restored {
 		n.restored = false
