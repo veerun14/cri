@@ -54,8 +54,7 @@ func (c *criService) getDefaultSnapshotterForSandbox(cfg *runtime.PodSandboxConf
 
 func (c *criService) getDefaultSandboxImage(cfg *runtime.PodSandboxConfig) string {
 	if isWindowsLcow(cfg) {
-		// TODO: JTERRY75 figure out why pause container isnt working in opengcs.
-		return "docker.io/library/alpine:latest" // "k8s.gcr.io/pause:3.1"
+		return "k8s.gcr.io/pause:3.1"
 	}
 	return c.config.SandboxImage
 }
