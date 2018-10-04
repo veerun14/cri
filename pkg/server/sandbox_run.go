@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -97,7 +98,7 @@ func (c *criService) setupPodNetwork(sandbox *sandboxstore.Sandbox) (retErr erro
 // setupPod setups up the network for a pod
 func (c *criService) setupPod(id string, path string, config *runtime.PodSandboxConfig) (string, error) {
 	if c.netPlugin == nil {
-		return "", errors.New("cni config not intialized")
+		return "", errors.New("cni config not initialized")
 	}
 
 	labels := getPodCNILabels(id, config)
@@ -108,6 +109,7 @@ func (c *criService) setupPod(id string, path string, config *runtime.PodSandbox
 	if err != nil {
 		return "", err
 	}
+	logDebugCNIResult(id, result)
 	// Check if the default interface has IP config
 	if configs, ok := result.Interfaces[defaultIfName]; ok && len(configs.IPConfigs) > 0 {
 		return selectPodIP(configs.IPConfigs), nil
@@ -164,4 +166,16 @@ func hostAccessingSandbox(config *runtime.PodSandboxConfig) bool {
 	}
 
 	return false
+}
+
+func logDebugCNIResult(sandboxID string, result *cni.CNIResult) {
+	if logrus.GetLevel() < logrus.DebugLevel {
+		return
+	}
+	cniResult, err := json.Marshal(result)
+	if err != nil {
+		logrus.WithError(err).Errorf("Failed to marshal CNI result for sandbox %q: %v", sandboxID, err)
+		return
+	}
+	logrus.Debugf("cni result for sandbox %q: %s", sandboxID, string(cniResult))
 }
