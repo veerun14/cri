@@ -41,6 +41,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	// maxLcowVhdSizeGB is the max size in GB of any layer
+	maxLcowVhdSizeGB = 128 * 1024 * 1024 * 1024
+)
+
 func init() {
 	plugin.Register(&plugin.Registration{
 		Type: plugin.DiffPlugin,
@@ -145,7 +150,11 @@ func (s windowsLcowDiff) Apply(ctx context.Context, desc ocispec.Descriptor, mou
 		}
 	}()
 
+<<<<<<< HEAD
 	err = tar2ext4.Convert(rc, outFile, tar2ext4.ConvertWhiteout, tar2ext4.AppendVhdFooter)
+=======
+	err = tar2ext4.Convert(rc, outFile, tar2ext4.ConvertWhiteout, tar2ext4.AppendVhdFooter, tar2ext4.MaximumDiskSize(maxLcowVhdSizeGB))
+>>>>>>> origin/master
 	if err != nil {
 		return emptyDesc, errors.Wrapf(err, "failed to convert tar to ext4 vhd")
 	}
