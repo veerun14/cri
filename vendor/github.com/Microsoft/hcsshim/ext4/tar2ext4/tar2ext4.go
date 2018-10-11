@@ -4,7 +4,6 @@ import (
 	"archive/tar"
 	"bufio"
 	"encoding/binary"
-	"errors"
 	"io"
 	"path"
 	"strings"
@@ -40,6 +39,15 @@ func InlineData(p *params) {
 	p.ext4opts = append(p.ext4opts, compactext4.InlineData)
 }
 
+// MaximumDiskSize instructs the writer to limit the disk size to the specified
+// value. This also reserves enough metadata space for the specified disk size.
+// If not provided, then 16GB is the default.
+func MaximumDiskSize(size int64) Option {
+	return func(p *params) {
+		p.ext4opts = append(p.ext4opts, compactext4.MaximumDiskSize(size))
+	}
+}
+
 const (
 	whiteoutPrefix = ".wh."
 	opaqueWhiteout = ".wh..wh..opq"
@@ -47,7 +55,7 @@ const (
 
 // Convert writes a compact ext4 file system image that contains the files in the
 // input tar stream.
-func Convert(r io.Reader, w io.WriteSeeker, options ...Option) error {
+func Convert(r io.Reader, w io.ReadWriteSeeker, options ...Option) error {
 	var p params
 	for _, opt := range options {
 		opt(&p)
@@ -67,18 +75,27 @@ func Convert(r io.Reader, w io.WriteSeeker, options ...Option) error {
 			dir, name := path.Split(hdr.Name)
 			if strings.HasPrefix(name, whiteoutPrefix) {
 				if name == opaqueWhiteout {
-					return errors.New("opaque whiteouts not yet supported")
-				}
-
-				// Create an overlay-style whiteout.
-				f := &compactext4.File{
-					Mode:     compactext4.S_IFCHR,
-					Devmajor: 0,
-					Devminor: 0,
-				}
-				err = fs.Create(path.Join(dir, name[len(whiteoutPrefix):]), f)
-				if err != nil {
-					return err
+					// Update the directory with the appropriate xattr.
+					f, err := fs.Stat(dir)
+					if err != nil {
+						return err
+					}
+					f.Xattrs["trusted.overlay.opaque"] = []byte("y")
+					err = fs.Create(dir, f)
+					if err != nil {
+						return err
+					}
+				} else {
+					// Create an overlay-style whiteout.
+					f := &compactext4.File{
+						Mode:     compactext4.S_IFCHR,
+						Devmajor: 0,
+						Devminor: 0,
+					}
+					err = fs.Create(path.Join(dir, name[len(whiteoutPrefix):]), f)
+					if err != nil {
+						return err
+					}
 				}
 
 				continue
@@ -96,6 +113,7 @@ func Convert(r io.Reader, w io.WriteSeeker, options ...Option) error {
 				Atime:    hdr.AccessTime,
 				Mtime:    hdr.ModTime,
 				Ctime:    hdr.ChangeTime,
+				Crtime:   hdr.ModTime,
 				Size:     hdr.Size,
 				Uid:      uint32(hdr.Uid),
 				Gid:      uint32(hdr.Gid),
