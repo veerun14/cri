@@ -106,6 +106,10 @@ func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandbox
 
 	sandboxLabels := buildLabels(config.Labels, containerKindSandbox)
 
+	runtimeOpts, err := generateRuntimeOptions(ociRuntime, c.config)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to generate runtime options")
+	}
 	opts := []containerd.NewContainerOpts{
 		containerd.WithImage(image.Image),
 		containerd.WithSnapshotter(c.getDefaultSnapshotterForSandbox(config)),
@@ -113,7 +117,7 @@ func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandbox
 		containerd.WithContainerLabels(sandboxLabels),
 		containerd.WithContainerExtension(sandboxMetadataExtension, &sandbox.Metadata),
 		containerd.WithSpec(spec),
-		containerd.WithRuntime(ociRuntime.Type, nil)}
+		containerd.WithRuntime(ociRuntime.Type, runtimeOpts)}
 
 	container, err := c.client.NewContainer(ctx, id, opts...)
 	if err != nil {

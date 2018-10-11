@@ -22,13 +22,8 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/containerd/containerd/containers"
-	"github.com/containerd/containerd/runtime/linux/runctypes"
-	criconfig "github.com/containerd/cri/pkg/config"
-	"github.com/containerd/typeurl"
 	"github.com/opencontainers/selinux/go-selinux"
 	"github.com/opencontainers/selinux/go-selinux/label"
-	"github.com/pkg/errors"
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 )
 
@@ -68,24 +63,4 @@ func checkSelinuxLevel(level string) (bool, error) {
 		return false, fmt.Errorf("the format of 'level' %q is not correct: %v", level, err)
 	}
 	return true, nil
-}
-
-// getRuntimeConfigFromContainerInfo gets runtime configuration from containerd
-// container info.
-func getRuntimeConfigFromContainerInfo(c containers.Container) (criconfig.Runtime, error) {
-	r := criconfig.Runtime{
-		Type: c.Runtime.Name,
-	}
-	if c.Runtime.Options == nil {
-		// CRI plugin makes sure that runtime option is always set.
-		return criconfig.Runtime{}, errors.New("runtime options is nil")
-	}
-	data, err := typeurl.UnmarshalAny(c.Runtime.Options)
-	if err != nil {
-		return criconfig.Runtime{}, errors.Wrap(err, "failed to unmarshal runtime options")
-	}
-	runtimeOpts := data.(*runctypes.RuncOptions)
-	r.Engine = runtimeOpts.Runtime
-	r.Root = runtimeOpts.RuntimeRoot
-	return r, nil
 }

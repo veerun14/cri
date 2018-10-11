@@ -24,6 +24,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/BurntSushi/toml"
+	"github.com/containerd/containerd/containers"
+	"github.com/containerd/containerd/runtime/linux/runctypes"
+	runcoptions "github.com/containerd/containerd/runtime/v2/runc/options"
+	"github.com/containerd/typeurl"
 	"github.com/docker/distribution/reference"
 	imagedigest "github.com/opencontainers/go-digest"
 	runtimespec "github.com/opencontainers/runtime-spec/specs-go"
@@ -118,13 +123,23 @@ const (
 	windowsNetworkAttachCount = 1
 )
 
+// Runtime type strings for various runtimes.
+const (
+	// linuxRuntime is the legacy linux runtime for shim v1.
+	linuxRuntime = "io.containerd.runtime.v1.linux"
+	// runcRuntime is the runc runtime for shim v2.
+	runcRuntime = "io.containerd.runc.v1"
+	// runhcsRuntime is the runhcs runtime for the shim v2 for Windows.
+	runhcsRuntime = "io.containerd.runhcs.v1"
+)
+
 // makeSandboxName generates sandbox name from sandbox metadata. The name
 // generated is unique as long as sandbox metadata is unique.
 func makeSandboxName(s *runtime.PodSandboxMetadata) string {
 	return strings.Join([]string{
-		s.Name,                       // 0
-		s.Namespace,                  // 1
-		s.Uid,                        // 2
+		s.Name,      // 0
+		s.Namespace, // 1
+		s.Uid,       // 2
 		fmt.Sprintf("%d", s.Attempt), // 3
 	}, nameDelimiter)
 }
@@ -134,10 +149,10 @@ func makeSandboxName(s *runtime.PodSandboxMetadata) string {
 // unique.
 func makeContainerName(c *runtime.ContainerMetadata, s *runtime.PodSandboxMetadata) string {
 	return strings.Join([]string{
-		c.Name,                       // 0
-		s.Name,                       // 1: pod name
-		s.Namespace,                  // 2: pod namespace
-		s.Uid,                        // 3: pod uid
+		c.Name,      // 0
+		s.Name,      // 1: pod name
+		s.Namespace, // 2: pod namespace
+		s.Uid,       // 3: pod uid
 		fmt.Sprintf("%d", c.Attempt), // 4
 	}, nameDelimiter)
 }
@@ -400,4 +415,56 @@ func parseImageReferences(refs []string) ([]string, []string) {
 		}
 	}
 	return tags, digests
+}
+
+// generateRuntimeOptions generates runtime options from cri plugin config.
+func generateRuntimeOptions(r criconfig.Runtime, c criconfig.Config) (interface{}, error) {
+	if r.Options == nil {
+		switch r.Type {
+		case linuxRuntime:
+			// This is a legacy config, generate runctypes.RuncOptions.
+			return &runctypes.RuncOptions{
+				Runtime:       r.Engine,
+				RuntimeRoot:   r.Root,
+				SystemdCgroup: c.SystemdCgroup,
+			}, nil
+		case runhcsRuntime:
+			// TODO: JTERRY75 Runhcs options
+			return nil, nil
+		}
+		if r.Type != linuxRuntime {
+			return nil, nil
+		}
+
+	}
+	options := getRuntimeOptionsType(r.Type)
+	if err := toml.PrimitiveDecode(*r.Options, options); err != nil {
+		return nil, err
+	}
+	return options, nil
+}
+
+// getRuntimeOptionsType gets empty runtime options by the runtime type name.
+func getRuntimeOptionsType(t string) interface{} {
+	switch t {
+	case runcRuntime:
+		return &runcoptions.Options{}
+	case runhcsRuntime:
+		// TODO: JTERRY75 - Runhcs options
+		return nil
+	default:
+		return &runctypes.RuncOptions{}
+	}
+}
+
+// getRuntimeOptions get runtime options from container metadata.
+func getRuntimeOptions(c containers.Container) (interface{}, error) {
+	if c.Runtime.Options == nil {
+		return nil, nil
+	}
+	opts, err := typeurl.UnmarshalAny(c.Runtime.Options)
+	if err != nil {
+		return nil, err
+	}
+	return opts, nil
 }

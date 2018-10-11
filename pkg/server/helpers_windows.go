@@ -19,26 +19,10 @@ limitations under the License.
 package server
 
 import (
-	"github.com/containerd/containerd/containers"
-	criconfig "github.com/containerd/cri/pkg/config"
-	"github.com/pkg/errors"
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 )
 
 // initSelinuxOpts is not supported on Windows.
 func initSelinuxOpts(selinuxOpt *runtime.SELinuxOption) (string, string, error) {
 	return "", "", nil
-}
-
-// getRuntimeConfigFromContainerInfo gets runtime configuration from containerd
-// container info.
-func getRuntimeConfigFromContainerInfo(c containers.Container) (criconfig.Runtime, error) {
-	r := criconfig.Runtime{
-		Type: c.Runtime.Name,
-	}
-	if c.Runtime.Options != nil {
-		// CRI plugin makes sure that runtime option is not used on Windows curently.
-		return criconfig.Runtime{}, errors.New("runtime options is not nil")
-	}
-	return r, nil
 }

@@ -36,7 +36,7 @@ func TestImageLoad(t *testing.T) {
 	loadedImage := "docker.io/library/" + testImage
 	_, err := exec.LookPath("docker")
 	if err != nil {
-		t.Skip("Docker is not available: %v", err)
+		t.Skipf("Docker is not available: %v", err)
 	}
 	t.Logf("docker save image into tarball")
 	output, err := exec.Command("docker", "pull", testImage).CombinedOutput()
@@ -70,7 +70,7 @@ func TestImageLoad(t *testing.T) {
 
 	t.Logf("create a container with the loaded image")
 	sbConfig := PodSandboxConfig("sandbox", Randomize("image-load"))
-	sb, err := runtimeService.RunPodSandbox(sbConfig)
+	sb, err := runtimeService.RunPodSandbox(sbConfig, *runtimeHandler)
 	require.NoError(t, err)
 	defer func() {
 		assert.NoError(t, runtimeService.StopPodSandbox(sb))

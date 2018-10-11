@@ -98,11 +98,6 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get sandbox %q info", sandboxID)
 	}
-	ociRuntime, err := getRuntimeConfigFromContainerInfo(sandboxInfo)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get OCI runtime")
-	}
-	logrus.Debugf("Use OCI %+v for container %q", ociRuntime, id)
 
 	// Create container root directory.
 	containerRootDir := c.getContainerRootDir(id)
@@ -168,11 +163,15 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 	}()
 
 	containerLabels := buildLabels(config.Labels, containerKindContainer)
+	runtimeOptions, err := getRuntimeOptions(sandboxInfo)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get runtime options")
+	}
 	opts = append(opts,
 		containerd.WithSpec(spec),
 		containerd.WithContainerLabels(containerLabels),
 		containerd.WithContainerExtension(containerMetadataExtension, &meta),
-		containerd.WithRuntime(ociRuntime.Type, nil))
+		containerd.WithRuntime(sandboxInfo.Runtime.Name, runtimeOptions))
 
 	var cntr containerd.Container
 	if cntr, err = c.client.NewContainer(ctx, id, opts...); err != nil {
