@@ -116,7 +116,7 @@ func (c *criService) startContainer(ctx context.Context,
 	var taskOpts []containerd.NewTaskOpts
 	// TODO(random-liu): Remove this after shim v1 is deprecated.
 	if c.config.NoPivot && ctrInfo.Runtime.Name == linuxRuntime {
-		taskOpts = append(taskOpts, containerd.WithNoPivotRoot)
+		taskOpts = addOptWithNoPivotRoot(taskOpts)
 	}
 	task, err := container.NewTask(ctx, ioCreation, taskOpts...)
 	if err != nil {
