@@ -53,14 +53,18 @@ func (dc *delayedConnection) Read(p []byte) (int, error) {
 	return 0, errors.New("use of closed network connection")
 }
 
-func (dc *delayedConnection) Close() error {
+func (dc *delayedConnection) unblockConnectionWaiters() {
 	defer dc.once.Do(func() {
 		dc.wg.Done()
 	})
+}
+
+func (dc *delayedConnection) Close() error {
 	dc.l.Close()
 	if dc.con != nil {
 		return dc.con.Close()
 	}
+	dc.unblockConnectionWaiters()
 	return nil
 }
 
@@ -105,6 +109,7 @@ func newStdioPipes(fifos *cio.FIFOSet) (_ *stdioPipes, _ *wgCloser, err error) {
 				return
 			}
 			dc.con = c
+			dc.unblockConnectionWaiters()
 		}()
 	}
 
@@ -133,6 +138,7 @@ func newStdioPipes(fifos *cio.FIFOSet) (_ *stdioPipes, _ *wgCloser, err error) {
 				return
 			}
 			dc.con = c
+			dc.unblockConnectionWaiters()
 		}()
 	}
 
@@ -161,6 +167,7 @@ func newStdioPipes(fifos *cio.FIFOSet) (_ *stdioPipes, _ *wgCloser, err error) {
 				return
 			}
 			dc.con = c
+			dc.unblockConnectionWaiters()
 		}()
 	}
 
