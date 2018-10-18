@@ -57,16 +57,17 @@ func (c *criService) StopPodSandbox(ctx context.Context, r *runtime.StopPodSandb
 		}
 	}
 
-	if err := c.doStopPodSandbox(id, sandbox); err != nil {
-		return nil, err
-	}
-
 	// Only stop sandbox container when it's running.
 	if sandbox.Status.Get().State == sandboxstore.StateReady {
 		if err := c.stopSandboxContainer(ctx, sandbox); err != nil {
 			return nil, errors.Wrapf(err, "failed to stop sandbox container %q", id)
 		}
 	}
+
+	if err := c.doStopPodSandbox(id, sandbox); err != nil {
+		return nil, err
+	}
+
 	return &runtime.StopPodSandboxResponse{}, nil
 }
 
@@ -83,8 +84,14 @@ func (c *criService) stopSandboxContainer(ctx context.Context, sandbox sandboxst
 		return errors.Wrap(err, "failed to get sandbox container")
 	}
 
+	spec, err := container.Spec(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to get container spec")
+	}
+
+	stopSignal := getSysKillSignal(spec)
 	// Kill the sandbox container.
-	if err = task.Kill(ctx, SysKillSignal, containerd.WithKillAll); err != nil && !errdefs.IsNotFound(err) {
+	if err = task.Kill(ctx, stopSignal, containerd.WithKillAll); err != nil && !errdefs.IsNotFound(err) {
 		return errors.Wrap(err, "failed to kill sandbox container")
 	}
 
@@ -94,7 +101,7 @@ func (c *criService) stopSandboxContainer(ctx context.Context, sandbox sandboxst
 	logrus.WithError(err).Errorf("An error occurs during waiting for sandbox %q to be killed", sandbox.ID)
 
 	// Kill the sandbox container init process.
-	if err = task.Kill(ctx, SysKillSignal); err != nil && !errdefs.IsNotFound(err) {
+	if err = task.Kill(ctx, stopSignal); err != nil && !errdefs.IsNotFound(err) {
 		return errors.Wrap(err, "failed to kill sandbox container init process")
 	}
 

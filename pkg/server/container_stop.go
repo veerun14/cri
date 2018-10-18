@@ -73,10 +73,14 @@ func (c *criService) stopContainer(ctx context.Context, container containerstore
 		return nil
 	}
 
+	spec, err := container.Container.Spec(ctx)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get container spec")
+	}
+
 	// We only need to kill the task. The event handler will Delete the
 	// task from containerd after it handles the Exited event.
 	if timeout > 0 {
-		stopSignal := SysTermSignal
 		image, err := c.imageStore.Get(container.ImageRef)
 		if err != nil {
 			// NOTE(random-liu): It's possible that the container is stopped,
@@ -85,6 +89,8 @@ func (c *criService) stopContainer(ctx context.Context, container containerstore
 			// an error here.
 			return errors.Wrapf(err, "failed to get image metadata %q", container.ImageRef)
 		}
+
+		stopSignal := getSysTermSignal(spec)
 		if image.ImageSpec.Config.StopSignal != "" {
 			stopSignal, err = signal.ParseSignal(image.ImageSpec.Config.StopSignal)
 			if err != nil {
@@ -103,8 +109,9 @@ func (c *criService) stopContainer(ctx context.Context, container containerstore
 		logrus.WithError(err).Errorf("An error occurs during waiting for container %q to be stopped", id)
 	}
 
+	stopSignal := getSysKillSignal(spec)
 	logrus.Infof("Kill container %q", id)
-	if err = task.Kill(ctx, SysKillSignal, containerd.WithKillAll); err != nil && !errdefs.IsNotFound(err) {
+	if err = task.Kill(ctx, stopSignal, containerd.WithKillAll); err != nil && !errdefs.IsNotFound(err) {
 		return errors.Wrapf(err, "failed to kill container %q", id)
 	}
 
@@ -125,7 +132,7 @@ func (c *criService) stopContainer(ctx context.Context, container containerstore
 	// NOTE(random-liu): If pid namespace is shared inside the pod, non-init processes
 	// of this container will be left running until the pause container is stopped.
 	logrus.Infof("Kill container %q init process", id)
-	if err = task.Kill(ctx, SysKillSignal); err != nil && !errdefs.IsNotFound(err) {
+	if err = task.Kill(ctx, stopSignal); err != nil && !errdefs.IsNotFound(err) {
 		return errors.Wrapf(err, "failed to kill container %q init process", id)
 	}
 

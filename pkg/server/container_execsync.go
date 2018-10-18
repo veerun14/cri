@@ -173,7 +173,7 @@ func (c *criService) execInContainer(ctx context.Context, id string, opts execOp
 	case <-timeoutCh:
 		//TODO(Abhi) Use context.WithDeadline instead of timeout.
 		// Ignore the not found error because the process may exit itself before killing.
-		if err := process.Kill(ctx, SysKillSignal); err != nil && !errdefs.IsNotFound(err) {
+		if err := process.Kill(ctx, getSysKillSignal(spec)); err != nil && !errdefs.IsNotFound(err) {
 			return nil, errors.Wrapf(err, "failed to kill exec %q", execID)
 		}
 		// Wait for the process to be killed.

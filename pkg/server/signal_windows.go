@@ -20,14 +20,11 @@ package server
 
 import (
 	"syscall"
+
+	"github.com/containerd/containerd/oci"
 )
 
 const (
-	// SysKillSignal is the Windows representation of unix.SIGKILL
-	SysKillSignal = syscall.Signal(0x9)
-	// SysTermSignal is the Windows representation of unix.SIGTERM
-	SysTermSignal = syscall.Signal(0xf)
-
 	// SysMS_NOEXEC is the Windows representation of unix.MS_NOEXEC
 	SysMS_NOEXEC = 0x8
 	// SysMS_NOSUID is the Windows representation of unix.MS_NOSUID
@@ -35,3 +32,21 @@ const (
 	// SysMS_NODEV is the Windows representation of unix.MS_NODEV
 	SysMS_NODEV = 0x4
 )
+
+func getSysKillSignal(spec *oci.Spec) syscall.Signal {
+	if spec.Linux != nil {
+		// Windows representation of unix.SIGKILL
+		return syscall.Signal(0x9)
+	}
+	// Windows container equivalent of unix.SIGKILL
+	return syscall.Signal(0x6)
+}
+
+func getSysTermSignal(spec *oci.Spec) syscall.Signal {
+	if spec.Linux != nil {
+		// Windows representation of unix.SIGTERM
+		return syscall.Signal(0xf)
+	}
+	// Windows container equivalent of unix.SIGTERM
+	return syscall.Signal(0x0)
+}

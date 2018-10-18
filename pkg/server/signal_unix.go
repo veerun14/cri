@@ -19,15 +19,13 @@ limitations under the License.
 package server
 
 import (
+	"syscall"
+
+	"github.com/containerd/containerd/oci"
 	"golang.org/x/sys/unix"
 )
 
 const (
-	// SysKillSignal is the unix signal SIGKILL
-	SysKillSignal = unix.SIGKILL
-	// SysTermSignal is the unix signal SIGTERM
-	SysTermSignal = unix.SIGTERM
-
 	// SysMS_NOEXEC is unix.MS_SYSNOEXEC
 	SysMS_NOEXEC = unix.MS_SYSNOEXEC
 	// SysMS_NOSUID is unix.MS_NOSUID
@@ -35,3 +33,11 @@ const (
 	// SysMS_NODEV is unix.MS_NODEV
 	SysMS_NODEV = unix.MS_NODEV
 )
+
+func getSysKillSignal(spec *oci.Spec) syscall.Signal {
+	return unix.SIGKILL
+}
+
+func getSysTermSignal(spec *oci.Spec) syscall.Signal {
+	return unix.SIGTERM
+}
