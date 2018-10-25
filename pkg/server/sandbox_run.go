@@ -21,13 +21,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/containerd/cri/pkg/annotations"
+	"github.com/containerd/cri/pkg/netns"
+	sandboxstore "github.com/containerd/cri/pkg/store/sandbox"
 	cni "github.com/containerd/go-cni"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
-
-	"github.com/containerd/cri/pkg/annotations"
-	sandboxstore "github.com/containerd/cri/pkg/store/sandbox"
 )
 
 // parseDNSOptions parse DNS options into resolv.conf format content,
@@ -56,7 +56,7 @@ func parseDNSOptions(servers, searches, options []string) (string, error) {
 
 func (c *criService) setupPodNetwork(sandbox *sandboxstore.Sandbox) (retErr error) {
 	id := sandbox.Metadata.ID
-	netns, err := sandboxstore.NewNetNS()
+	netns, err := netns.NewNetNS()
 	if err != nil {
 		return errors.Wrapf(err, "failed to create network namespace for sandbox %q", id)
 	}

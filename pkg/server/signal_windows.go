@@ -24,15 +24,6 @@ import (
 	"github.com/containerd/containerd/oci"
 )
 
-const (
-	// SysMS_NOEXEC is the Windows representation of unix.MS_NOEXEC
-	SysMS_NOEXEC = 0x8
-	// SysMS_NOSUID is the Windows representation of unix.MS_NOSUID
-	SysMS_NOSUID = 0x2
-	// SysMS_NODEV is the Windows representation of unix.MS_NODEV
-	SysMS_NODEV = 0x4
-)
-
 func getSysKillSignal(spec *oci.Spec) syscall.Signal {
 	if spec.Linux != nil {
 		// Windows representation of unix.SIGKILL

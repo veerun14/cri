@@ -86,17 +86,17 @@ func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandbox
 		return nil, errors.Wrapf(err, "failed to get sandbox image %q", imageName)
 	}
 
-	// Setup Networking
-	err = c.setupPodNetwork(&sandbox)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to setup networking for sandbox %q", id)
-	}
-
 	ociRuntime, err := c.getSandboxRuntime(config)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get sandbox runtime")
 	}
 	logrus.Debugf("Use OCI %+v for sandbox %q", ociRuntime, id)
+
+	// Setup Networking
+	err = c.setupPodNetwork(&sandbox)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to setup networking for sandbox %q", id)
+	}
 
 	// Create sandbox container.
 	spec, err := c.generateSandboxContainerSpec(id, config, &image.ImageSpec.Config, sandbox.NetNSPath)

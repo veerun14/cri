@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package sandbox
+package netns
 
 import (
 	"sync"
@@ -49,14 +49,14 @@ func NewNetNS() (*NetNS, error) {
 
 // LoadNetNS loads existing network namespace. It returns ErrClosedNetNS
 // if the network namespace has already been closed or not found.
-func LoadNetNS(path string) (*NetNS, error) {
+func LoadNetNS(path string) *NetNS {
 	_, err := hcn.GetNamespaceByID(path)
 	if err != nil {
 		// Todo: Check for NotFound error
-		return nil, ErrClosedNetNS
+		return &NetNS{closed: true, path: path}
 	}
 
-	return &NetNS{restored: true, path: path}, nil
+	return &NetNS{restored: true, path: path}
 }
 
 // Remove removes network namepace if it exists and not closed. Remove is idempotent,
@@ -80,10 +80,10 @@ func (n *NetNS) Remove() error {
 }
 
 // Closed checks whether the network namespace has been closed.
-func (n *NetNS) Closed() bool {
+func (n *NetNS) Closed() (bool, error) {
 	n.Lock()
 	defer n.Unlock()
-	return n.closed && !n.restored
+	return n.closed, nil
 }
 
 // GetPath returns network namespace path for sandbox container

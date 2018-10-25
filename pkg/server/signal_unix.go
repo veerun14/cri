@@ -25,15 +25,6 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const (
-	// SysMS_NOEXEC is unix.MS_SYSNOEXEC
-	SysMS_NOEXEC = unix.MS_SYSNOEXEC
-	// SysMS_NOSUID is unix.MS_NOSUID
-	SysMS_NOSUID = unix.MS_NOSUID
-	// SysMS_NODEV is unix.MS_NODEV
-	SysMS_NODEV = unix.MS_NODEV
-)
-
 func getSysKillSignal(spec *oci.Spec) syscall.Signal {
 	return unix.SIGKILL
 }

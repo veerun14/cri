@@ -19,32 +19,25 @@ limitations under the License.
 package server
 
 import (
-	"os"
-
 	sandboxstore "github.com/containerd/cri/pkg/store/sandbox"
-	cni "github.com/containerd/go-cni"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 )
 
 func (c *criService) doStopPodSandbox(id string, sandbox sandboxstore.Sandbox) error {
 	// Teardown network for sandbox.
-	if sandbox.NetNSPath != "" && sandbox.NetNS != nil {
-		if _, err := os.Stat(sandbox.NetNSPath); err != nil {
-			if !os.IsNotExist(err) {
-				return errors.Wrapf(err, "failed to stat network namespace path %s", sandbox.NetNSPath)
-			}
-		} else {
-			if teardownErr := c.teardownPod(id, sandbox.NetNSPath, sandbox.Config); teardownErr != nil {
-				return errors.Wrapf(teardownErr, "failed to destroy network for sandbox %q", id)
-			}
+	if sandbox.NetNS != nil {
+		netNSPath := sandbox.NetNSPath
+		// Use empty netns path if netns is not available. This is defined in:
+		// https://github.com/containernetworking/cni/blob/v0.7.0-alpha1/SPEC.md
+		if closed, err := sandbox.NetNS.Closed(); err != nil {
+			return errors.Wrap(err, "failed to check network namespace closed")
+		} else if closed {
+			netNSPath = ""
 		}
-		/*TODO:It is still possible that containerd crashes after we teardown the network, but before we remove the network namespace.
-		In that case, we'll not be able to remove the sandbox anymore. The chance is slim, but we should be aware of that.
-		In the future, once TearDownPod is idempotent, this will be fixed.*/
-
-		//Close the sandbox network namespace if it was created
+		if err := c.teardownPod(id, netNSPath, sandbox.Config); err != nil {
+			return errors.Wrapf(err, "failed to destroy network for sandbox %q", id)
+		}
 		if err := sandbox.NetNS.Remove(); err != nil {
 			return errors.Wrapf(err, "failed to remove network namespace for sandbox %q", id)
 		}

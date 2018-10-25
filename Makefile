@@ -99,15 +99,15 @@ sync-vendor:
 
 update-vendor: sync-vendor sort-vendor
 
-$(BUILD_DIR)/ctr: $(SOURCES)
-	$(GO) build -o $@$(BIN_EXT) \
+$(BUILD_DIR)/ctr$(BIN_EXT): $(SOURCES)
+	$(GO) build -o $@ \
 		$(BUILD_TAGS) \
 		-ldflags '$(GO_LDFLAGS)' \
 		-gcflags '$(GO_GCFLAGS)' \
 		$(PROJECT)/cmd/ctr
 
-$(BUILD_DIR)/containerd: $(SOURCES) $(PLUGIN_SOURCES)
-	$(GO) build -o $@$(BIN_EXT) \
+$(BUILD_DIR)/containerd$(BIN_EXT): $(SOURCES) $(PLUGIN_SOURCES)
+	$(GO) build -o $@ \
 		$(BUILD_TAGS) \
 		-ldflags '$(GO_LDFLAGS)' \
 		-gcflags '$(GO_GCFLAGS)' \
@@ -134,17 +134,17 @@ test-e2e-node: binaries
 clean:
 	rm -rf $(BUILD_DIR)/*
 
-binaries: $(BUILD_DIR)/containerd $(BUILD_DIR)/ctr
+binaries: $(BUILD_DIR)/containerd$(BIN_EXT) $(BUILD_DIR)/ctr$(BIN_EXT)
 
 static-binaries: GO_LDFLAGS += -extldflags "-fno-PIC -static"
-static-binaries: $(BUILD_DIR)/containerd $(BUILD_DIR)/ctr
+static-binaries: $(BUILD_DIR)/containerd$(BIN_EXT) $(BUILD_DIR)/ctr$(BIN_EXT)
 
-ctr: $(BUILD_DIR)/ctr
+ctr: $(BUILD_DIR)/ctr$(BIN_EXT)
 
 install-ctr: ctr
 	install -D -m 755 $(BUILD_DIR)/ctr $(BINDIR)/ctr
 
-containerd: $(BUILD_DIR)/containerd
+containerd: $(BUILD_DIR)/containerd$(BIN_EXT)
 
 install-containerd: containerd
 	install -D -m 755 $(BUILD_DIR)/containerd $(BINDIR)/containerd
