@@ -292,6 +292,12 @@ func (c *criService) generateSandboxContainerSpec(id string, config *runtime.Pod
 		g.SetProcessUsername(imageConfig.User)
 	}
 
+	// Forward any annotations from the orchestrator
+	for k, v := range config.Annotations {
+		g.AddAnnotation(k, v)
+	}
+
+	// Apply forcibly the sandbox annotations for this POD
 	g.AddAnnotation(annotations.ContainerType, annotations.ContainerTypeSandbox)
 	g.AddAnnotation(annotations.SandboxID, id)
 
