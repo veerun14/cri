@@ -129,7 +129,7 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 		}
 	}()
 
-	spec, err := c.generateContainerSpec(id, sandboxID, sandboxPid, config, sandboxConfig, &image.ImageSpec.Config, nil)
+	spec, err := c.generateContainerSpec(id, sandboxID, sandboxPid, sandbox.NetNSPath, config, sandboxConfig, &image.ImageSpec.Config, nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to generate container %q spec", id)
 	}
@@ -213,7 +213,7 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 	return &runtime.CreateContainerResponse{ContainerId: id}, nil
 }
 
-func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxPid uint32, config *runtime.ContainerConfig,
+func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxPid uint32, netnsPath string, config *runtime.ContainerConfig,
 	sandboxConfig *runtime.PodSandboxConfig, imageConfig *imagespec.ImageConfig, extraMounts []*runtime.Mount) (*runtimespec.Spec, error) {
 	// Creates a spec Generator with the default spec.
 	ctx := ctrdutil.NamespacedContext()
@@ -247,6 +247,9 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 	// Clear the root location since runhcs sets it on the mount path in the
 	// guest.
 	g.Config.Root = nil
+
+	// Set the Network Namespace
+	g.SetWindowsNetworkNamespace(netnsPath)
 
 	g.AddAnnotation(annotations.ContainerType, annotations.ContainerTypeContainer)
 	g.AddAnnotation(annotations.SandboxID, sandboxID)
