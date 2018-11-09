@@ -26,6 +26,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
+	osruntime "runtime"
 )
 
 // cniConfigTemplate contains the values containerd will overwrite
@@ -49,10 +50,16 @@ func (c *criService) UpdateRuntimeConfig(ctx context.Context, r *runtime.UpdateR
 		logrus.Info("No cni config template is specified, wait for other system components to drop the config.")
 		return &runtime.UpdateRuntimeConfigResponse{}, nil
 	}
+	var copts []cni.CNIOpt
+	if osruntime.GOOS != "windows" {
+		copts = append(copts, cni.WithLoNetwork)
+	}
+	copts = append(copts, cni.WithDefaultConf)
+
 	if err := c.netPlugin.Status(); err == nil {
 		logrus.Infof("Network plugin is ready, skip generating cni config from template %q", confTemplate)
 		return &runtime.UpdateRuntimeConfigResponse{}, nil
-	} else if err := c.netPlugin.Load(cni.WithLoNetwork, cni.WithDefaultConf); err == nil {
+	} else if err := c.netPlugin.Load(copts...); err == nil {
 		logrus.Infof("CNI config is successfully loaded, skip generating cni config from template %q", confTemplate)
 		return &runtime.UpdateRuntimeConfigResponse{}, nil
 	}

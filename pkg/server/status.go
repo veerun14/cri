@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	goruntime "runtime"
+	osruntime "runtime"
 
 	cni "github.com/containerd/go-cni"
 	"github.com/sirupsen/logrus"
@@ -43,8 +44,13 @@ func (c *criService) Status(ctx context.Context, r *runtime.StatusRequest) (*run
 		Status: true,
 	}
 
+	var copts []cni.CNIOpt
+	if osruntime.GOOS != "windows" {
+		copts = append(copts, cni.WithLoNetwork)
+	}
+	copts = append(copts, cni.WithDefaultConf)
 	// Load the latest cni configuration to be in sync with the latest network configuration
-	if err := c.netPlugin.Load(cni.WithLoNetwork, cni.WithDefaultConf); err != nil {
+	if err := c.netPlugin.Load(copts...); err != nil {
 		logrus.WithError(err).Errorf("Failed to load cni configuration")
 	}
 	// Check the status of the cni initialization
