@@ -28,8 +28,6 @@ TARBALL_PREFIX := cri-containerd
 TARBALL := $(TARBALL_PREFIX)-$(VERSION).$(GOOS)-$(GOARCH).tar.gz
 ifneq ($(GOOS),windows)
 	BUILD_TAGS := -tags "seccomp apparmor"
-else
-	BUILD_TAGS := -tags "windows_v2"
 endif
 # Add `-TEST` suffix to indicate that all binaries built from this repo are for test.
 GO_LDFLAGS := -X $(PROJECT)/vendor/github.com/containerd/containerd/version.Version=$(VERSION)-TEST
