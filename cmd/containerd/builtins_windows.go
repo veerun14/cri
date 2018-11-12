@@ -25,4 +25,5 @@ import (
 	_ "github.com/containerd/containerd/runtime/v2/runhcs"
 	_ "github.com/containerd/containerd/snapshots/lcow"
 	_ "github.com/containerd/containerd/snapshots/windows"
+	_ "github.com/containerd/containerd/windows"
 )
