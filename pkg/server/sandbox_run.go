@@ -79,7 +79,7 @@ func (c *criService) setupPodNetwork(sandbox *sandboxstore.Sandbox) (retErr erro
 	// In this case however caching the IP will add a subtle performance enhancement by avoiding
 	// calls to network namespace of the pod to query the IP of the veth interface on every
 	// SandboxStatus request.
-	sandbox.IP, err = c.setupPod(id, sandbox.NetNSPath, config)
+	sandbox.IP, _, err = c.setupPod(id, sandbox.NetNSPath, config)
 	if err != nil {
 		return errors.Wrapf(err, "failed to setup network for sandbox %q", id)
 	}
@@ -96,9 +96,9 @@ func (c *criService) setupPodNetwork(sandbox *sandboxstore.Sandbox) (retErr erro
 }
 
 // setupPod setups up the network for a pod
-func (c *criService) setupPod(id string, path string, config *runtime.PodSandboxConfig) (string, error) {
+func (c *criService) setupPod(id string, path string, config *runtime.PodSandboxConfig) (string, *cni.CNIResult, error) {
 	if c.netPlugin == nil {
-		return "", errors.New("cni config not initialized")
+		return "", nil, errors.New("cni config not initialized")
 	}
 
 	labels := getPodCNILabels(id, config)
@@ -107,18 +107,18 @@ func (c *criService) setupPod(id string, path string, config *runtime.PodSandbox
 		cni.WithLabels(labels),
 		cni.WithCapabilityPortMap(toCNIPortMappings(config.GetPortMappings())))
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	logDebugCNIResult(id, result)
 	// Check if the default interface has IP config
 	if configs, ok := result.Interfaces[defaultIfName]; ok && len(configs.IPConfigs) > 0 {
-		return selectPodIP(configs.IPConfigs), nil
+		return selectPodIP(configs.IPConfigs), result, nil
 	}
 	// If it comes here then the result was invalid so destroy the pod network and return error
 	if err := c.teardownPod(id, path, config); err != nil {
 		logrus.WithError(err).Errorf("Failed to destroy network for sandbox %q", id)
 	}
-	return "", errors.Errorf("failed to find network info for sandbox %q", id)
+	return "", result, errors.Errorf("failed to find network info for sandbox %q", id)
 }
 
 // toCNIPortMappings converts CRI port mappings to CNI.

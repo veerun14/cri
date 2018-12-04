@@ -125,7 +125,7 @@ func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandbox
 		// In this case however caching the IP will add a subtle performance enhancement by avoiding
 		// calls to network namespace of the pod to query the IP of the veth interface on every
 		// SandboxStatus request.
-		sandbox.IP, err = c.setupPod(id, sandbox.NetNSPath, config)
+		sandbox.IP, sandbox.CNIResult, err = c.setupPod(id, sandbox.NetNSPath, config)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to setup network for sandbox %q", id)
 		}

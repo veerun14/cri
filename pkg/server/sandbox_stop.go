@@ -19,11 +19,9 @@ package server
 import (
 	"time"
 
-	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/errdefs"
 	cni "github.com/containerd/go-cni"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 
@@ -91,18 +89,8 @@ func (c *criService) stopSandboxContainer(ctx context.Context, sandbox sandboxst
 
 	stopSignal := getSysKillSignal(spec)
 	// Kill the sandbox container.
-	if err = task.Kill(ctx, stopSignal, containerd.WithKillAll); err != nil && !errdefs.IsNotFound(err) {
-		return errors.Wrap(err, "failed to kill sandbox container")
-	}
-
-	if err = c.waitSandboxStop(ctx, sandbox, killContainerTimeout); err == nil {
-		return nil
-	}
-	logrus.WithError(err).Errorf("An error occurs during waiting for sandbox %q to be killed", sandbox.ID)
-
-	// Kill the sandbox container init process.
 	if err = task.Kill(ctx, stopSignal); err != nil && !errdefs.IsNotFound(err) {
-		return errors.Wrap(err, "failed to kill sandbox container init process")
+		return errors.Wrap(err, "failed to kill sandbox container")
 	}
 
 	return c.waitSandboxStop(ctx, sandbox, killContainerTimeout)
