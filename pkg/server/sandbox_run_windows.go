@@ -70,9 +70,10 @@ func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandbox
 	// Create initial internal sandbox object.
 	sandbox := sandboxstore.NewSandbox(
 		sandboxstore.Metadata{
-			ID:     id,
-			Name:   name,
-			Config: config,
+			ID:             id,
+			Name:           name,
+			Config:         config,
+			RuntimeHandler: r.GetRuntimeHandler(),
 		},
 		sandboxstore.Status{
 			State: sandboxstore.StateUnknown,
@@ -86,7 +87,7 @@ func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandbox
 		return nil, errors.Wrapf(err, "failed to get sandbox image %q", imageName)
 	}
 
-	ociRuntime, err := c.getSandboxRuntime(config)
+	ociRuntime, err := c.getSandboxRuntime(config, r.GetRuntimeHandler())
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get sandbox runtime")
 	}
@@ -307,12 +308,13 @@ func (c *criService) generateSandboxContainerSpec(id string, config *runtime.Pod
 // getSandboxRuntime returns the runtime configuration for sandbox.
 // If the sandbox contains untrusted workload, runtime for untrusted workload will be returned,
 // or else default runtime will be returned.
-func (c *criService) getSandboxRuntime(config *runtime.PodSandboxConfig) (criconfig.Runtime, error) {
-	if untrustedWorkload(config) {
-		if c.config.ContainerdConfig.UntrustedWorkloadRuntime.Type == "" {
-			return criconfig.Runtime{}, errors.New("no runtime for untrusted workload is configured")
-		}
-		return c.config.ContainerdConfig.UntrustedWorkloadRuntime, nil
+func (c *criService) getSandboxRuntime(config *runtime.PodSandboxConfig, runtimeHandler string) (criconfig.Runtime, error) {
+	if runtimeHandler == "" {
+		return c.config.ContainerdConfig.DefaultRuntime, nil
 	}
-	return c.config.ContainerdConfig.DefaultRuntime, nil
+	handler, ok := c.config.ContainerdConfig.Runtimes[runtimeHandler]
+	if !ok {
+		return criconfig.Runtime{}, errors.Errorf("no runtime for %q is configured", runtimeHandler)
+	}
+	return handler, nil
 }

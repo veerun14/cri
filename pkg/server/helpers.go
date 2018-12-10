@@ -28,6 +28,7 @@ import (
 	"github.com/containerd/containerd/containers"
 	"github.com/containerd/containerd/runtime/linux/runctypes"
 	runcoptions "github.com/containerd/containerd/runtime/v2/runc/options"
+	runhcsoptions "github.com/containerd/containerd/runtime/v2/runhcs/options"
 	"github.com/containerd/typeurl"
 	"github.com/docker/distribution/reference"
 	imagedigest "github.com/opencontainers/go-digest"
@@ -137,9 +138,9 @@ const (
 // generated is unique as long as sandbox metadata is unique.
 func makeSandboxName(s *runtime.PodSandboxMetadata) string {
 	return strings.Join([]string{
-		s.Name,                       // 0
-		s.Namespace,                  // 1
-		s.Uid,                        // 2
+		s.Name,      // 0
+		s.Namespace, // 1
+		s.Uid,       // 2
 		fmt.Sprintf("%d", s.Attempt), // 3
 	}, nameDelimiter)
 }
@@ -149,10 +150,10 @@ func makeSandboxName(s *runtime.PodSandboxMetadata) string {
 // unique.
 func makeContainerName(c *runtime.ContainerMetadata, s *runtime.PodSandboxMetadata) string {
 	return strings.Join([]string{
-		c.Name,                       // 0
-		s.Name,                       // 1: pod name
-		s.Namespace,                  // 2: pod namespace
-		s.Uid,                        // 3: pod uid
+		c.Name,      // 0
+		s.Name,      // 1: pod name
+		s.Namespace, // 2: pod namespace
+		s.Uid,       // 3: pod uid
 		fmt.Sprintf("%d", c.Attempt), // 4
 	}, nameDelimiter)
 }
@@ -429,8 +430,7 @@ func generateRuntimeOptions(r criconfig.Runtime, c criconfig.Config) (interface{
 				SystemdCgroup: c.SystemdCgroup,
 			}, nil
 		case runhcsRuntime:
-			// TODO: JTERRY75 Runhcs options
-			return nil, nil
+			return &runhcsoptions.Options{}, nil
 		}
 		if r.Type != linuxRuntime {
 			return nil, nil
@@ -450,8 +450,7 @@ func getRuntimeOptionsType(t string) interface{} {
 	case runcRuntime:
 		return &runcoptions.Options{}
 	case runhcsRuntime:
-		// TODO: JTERRY75 - Runhcs options
-		return nil
+		return &runhcsoptions.Options{}
 	default:
 		return &runctypes.RuncOptions{}
 	}
