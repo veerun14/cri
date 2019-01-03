@@ -26,7 +26,6 @@ import (
 	containerdio "github.com/containerd/containerd/cio"
 	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/oci"
-	"github.com/containerd/typeurl"
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
 	runtimespec "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
@@ -45,11 +44,6 @@ import (
 	"github.com/containerd/cri/pkg/util"
 )
 
-func init() {
-	typeurl.Register(&sandboxstore.Metadata{},
-		"github.com/containerd/cri/pkg/store/sandbox", "Metadata")
-}
-
 // RunPodSandbox creates and starts a pod-level sandbox. Runtimes should ensure
 // the sandbox is in ready state.
 func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandboxRequest) (_ *runtime.RunPodSandboxResponse, retErr error) {
@@ -57,7 +51,11 @@ func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandbox
 
 	// Generate unique id and name for the sandbox and reserve the name.
 	id := util.GenerateID()
-	name := makeSandboxName(config.GetMetadata())
+	metadata := config.GetMetadata()
+	if metadata == nil {
+		return nil, errors.New("sandbox config must include metadata")
+	}
+	name := makeSandboxName(metadata)
 	logrus.Debugf("Generated id %q for sandbox %q", id, name)
 	// Reserve the sandbox name to avoid concurrent `RunPodSandbox` request starting the
 	// same sandbox.
@@ -370,10 +368,14 @@ func (c *criService) generateSandboxContainerSpec(id string, config *runtime.Pod
 	// TODO(random-liu): [P2] Consider whether to add labels and annotations to the container.
 
 	// Set cgroups parent.
-	if config.GetLinux().GetCgroupParent() != "" {
-		cgroupsPath := getCgroupsPath(config.GetLinux().GetCgroupParent(), id,
-			c.config.SystemdCgroup)
-		g.SetLinuxCgroupsPath(cgroupsPath)
+	if c.config.DisableCgroup {
+		g.SetLinuxCgroupsPath("")
+	} else {
+		if config.GetLinux().GetCgroupParent() != "" {
+			cgroupsPath := getCgroupsPath(config.GetLinux().GetCgroupParent(), id,
+				c.config.SystemdCgroup)
+			g.SetLinuxCgroupsPath(cgroupsPath)
+		}
 	}
 	// When cgroup parent is not set, containerd-shim will create container in a child cgroup
 	// of the cgroup itself is in.
@@ -429,8 +431,17 @@ func (c *criService) generateSandboxContainerSpec(id string, config *runtime.Pod
 
 	// Note: LinuxSandboxSecurityContext does not currently provide an apparmor profile
 
-	g.SetLinuxResourcesCPUShares(uint64(defaultSandboxCPUshares))
-	g.SetProcessOOMScoreAdj(int(defaultSandboxOOMAdj))
+	if !c.config.DisableCgroup {
+		g.SetLinuxResourcesCPUShares(uint64(defaultSandboxCPUshares))
+	}
+	adj := int(defaultSandboxOOMAdj)
+	if c.config.RestrictOOMScoreAdj {
+		adj, err = restrictOOMScoreAdj(adj)
+		if err != nil {
+			return nil, err
+		}
+	}
+	g.SetProcessOOMScoreAdj(adj)
 
 	g.AddAnnotation(annotations.ContainerType, annotations.ContainerTypeSandbox)
 	g.AddAnnotation(annotations.SandboxID, id)

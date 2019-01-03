@@ -45,9 +45,5 @@ func (c *criService) doStopPodSandbox(id string, sandbox sandboxstore.Sandbox) e
 
 	logrus.Infof("TearDown network for sandbox %q successfully", id)
 
-	if err := c.unmountSandboxFiles(id, sandbox.Config); err != nil {
-		return errors.Wrap(err, "failed to unmount sandbox files")
-	}
-
 	return nil
 }

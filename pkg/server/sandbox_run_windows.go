@@ -24,7 +24,6 @@ import (
 	"github.com/containerd/containerd/containers"
 	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/oci"
-	"github.com/containerd/typeurl"
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
 	runtimespec "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
@@ -41,11 +40,6 @@ import (
 	"github.com/containerd/cri/pkg/util"
 )
 
-func init() {
-	typeurl.Register(&sandboxstore.Metadata{},
-		"github.com/containerd/cri/pkg/store/sandbox", "Metadata")
-}
-
 // RunPodSandbox creates and starts a pod-level sandbox. Runtimes should ensure
 // the sandbox is in ready state.
 func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandboxRequest) (_ *runtime.RunPodSandboxResponse, retErr error) {
@@ -53,7 +47,11 @@ func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandbox
 
 	// Generate unique id and name for the sandbox and reserve the name.
 	id := util.GenerateID()
-	name := makeSandboxName(config.GetMetadata())
+	metadata := config.GetMetadata()
+	if metadata == nil {
+		return nil, errors.New("sandbox config must include metadata")
+	}
+	name := makeSandboxName(metadata)
 	logrus.Debugf("Generated id %q for sandbox %q", id, name)
 	// Reserve the sandbox name to avoid concurrent `RunPodSandbox` request starting the
 	// same sandbox.
@@ -317,4 +315,9 @@ func (c *criService) getSandboxRuntime(config *runtime.PodSandboxConfig, runtime
 		return criconfig.Runtime{}, errors.Errorf("no runtime for %q is configured", runtimeHandler)
 	}
 	return handler, nil
+}
+
+// unmountSandboxFiles is a noop on Windows as there is nothing that was mounted.
+func (c *criService) unmountSandboxFiles(id string, config *runtime.PodSandboxConfig) error {
+	return nil
 }

@@ -41,6 +41,10 @@ func isSeccompEnabled() bool {
 	return false
 }
 
+// doRunningInUserNSCheck is not supported on Windows.
+func doRunningInUserNSCheck(disableCGroup, apparmorEnabled, restrictOOMScoreAdj bool) {
+}
+
 // doSelinux is not supported on Windows.
 func doSelinux(enable bool) {
 }

@@ -21,6 +21,7 @@ package server
 import (
 	runcapparmor "github.com/opencontainers/runc/libcontainer/apparmor"
 	runcseccomp "github.com/opencontainers/runc/libcontainer/seccomp"
+	runcsystem "github.com/opencontainers/runc/libcontainer/system"
 	"github.com/opencontainers/selinux/go-selinux"
 	"github.com/sirupsen/logrus"
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
@@ -34,6 +35,14 @@ func isApparmorEnabled() bool {
 // isSeccompEnabled is not supported on Windows.
 func isSeccompEnabled() bool {
 	return runcseccomp.IsEnabled()
+}
+
+func doRunningInUserNSCheck(disableCGroup, apparmorEnabled, restrictOOMScoreAdj bool) {
+	if runcsystem.RunningInUserNS() {
+		if !(disableCGroup && !apparmorEnabled && restrictOOMScoreAdj) {
+			logrus.Warn("Running containerd in a user namespace typically requires disable_cgroup, disable_apparmor, restrict_oom_score_adj set to be true")
+		}
+	}
 }
 
 func doSelinux(enable bool) {

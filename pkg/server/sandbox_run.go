@@ -25,10 +25,16 @@ import (
 	"github.com/containerd/cri/pkg/netns"
 	sandboxstore "github.com/containerd/cri/pkg/store/sandbox"
 	cni "github.com/containerd/go-cni"
+	"github.com/containerd/typeurl"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 )
+
+func init() {
+	typeurl.Register(&sandboxstore.Metadata{},
+		"github.com/containerd/cri/pkg/store/sandbox", "Metadata")
+}
 
 // parseDNSOptions parse DNS options into resolv.conf format content,
 // if none option is specified, will return empty with no error.

@@ -116,8 +116,9 @@ func NewCRIService(config criconfig.Config, client *containerd.Client) (CRIServi
 		initialized:        atomic.NewBool(false),
 	}
 
-	c.apparmorEnabled = isApparmorEnabled()
+	c.apparmorEnabled = isApparmorEnabled() && !config.DisableApparmor
 	c.seccompEnabled = isSeccompEnabled()
+	doRunningInUserNSCheck(config.DisableCgroup, c.apparmorEnabled, config.RestrictOOMScoreAdj)
 	doSelinux(c.config.EnableSelinux)
 
 	if client.SnapshotService(c.config.ContainerdConfig.Snapshotter) == nil {
