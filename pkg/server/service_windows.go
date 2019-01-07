@@ -19,7 +19,6 @@ limitations under the License.
 package server
 
 import (
-	"github.com/containerd/containerd/platforms"
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 )
 
@@ -50,42 +49,18 @@ func doSelinux(enable bool) {
 }
 
 func (c *criService) getDefaultSnapshotterForSandbox(cfg *runtime.PodSandboxConfig) string {
-	if isWindowsLcow(cfg) {
+	var (
+		platform string
+	)
+	if cfg != nil {
+		platform, _ = cfg.Labels["sandbox-platform"]
+	}
+	return c.getDefaultSnapshotterForPlatform(platform)
+}
+
+func (c *criService) getDefaultSnapshotterForPlatform(platform string) string {
+	if platform == "linux/amd64" {
 		return "windows-lcow"
 	}
 	return c.config.ContainerdConfig.Snapshotter
-}
-
-func (c *criService) getDefaultSandboxImage(cfg *runtime.PodSandboxConfig) string {
-	if isWindowsLcow(cfg) {
-		return "k8s.gcr.io/pause:3.1"
-	}
-	return c.config.SandboxImage
-}
-
-func getDefaultPlatform(cfg *runtime.PodSandboxConfig) string {
-	if cfg != nil {
-		if plat, ok := cfg.Labels["sandbox-platform"]; ok {
-			return plat
-		}
-	}
-	return platforms.DefaultString()
-}
-
-func getDefaultIsolation(cfg *runtime.PodSandboxConfig) Isolation {
-	if cfg != nil {
-		if isolation, ok := cfg.Labels["sandbox-isolation"]; ok {
-			switch isolation {
-			case "process":
-				return IsolationProcess
-			case "hyperv":
-				return IsolationHyperV
-			}
-		}
-	}
-	return IsolationUnknown
-}
-
-func isWindowsLcow(cfg *runtime.PodSandboxConfig) bool {
-	return getDefaultPlatform(cfg) == "linux/amd64"
 }

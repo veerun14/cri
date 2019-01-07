@@ -25,6 +25,7 @@ import (
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/containers"
 	"github.com/containerd/containerd/oci"
+	runhcsoptions "github.com/containerd/containerd/runtime/v2/runhcs/options"
 	"github.com/containerd/typeurl"
 	"github.com/davecgh/go-spew/spew"
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -133,7 +134,22 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 		}
 	}()
 
-	spec, err := c.generateContainerSpec(id, sandboxID, sandboxPid, sandbox.NetNSPath, config, sandboxConfig, &image.ImageSpec.Config, nil)
+	var sandboxPlatform string
+	if sandbox.RuntimeHandler != "" {
+		// Get the RuntimeHandler config overrides
+		ociRuntime := c.config.Runtimes[sandbox.RuntimeHandler]
+		runtimeOpts, err := generateRuntimeOptions(ociRuntime, c.config)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to generate runtime options")
+		}
+		rhcso := runtimeOpts.(*runhcsoptions.Options)
+		sandboxPlatform = rhcso.SandboxPlatform
+	}
+	if sandboxPlatform == "" {
+		sandboxPlatform = "windows/amd64"
+	}
+
+	spec, err := c.generateContainerSpec(id, sandboxID, sandboxPid, sandbox.NetNSPath, config, sandboxConfig, sandboxPlatform, &image.ImageSpec.Config, nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to generate container %q spec", id)
 	}
@@ -142,7 +158,7 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 
 	// Set snapshotter before any other options.
 	opts := []containerd.NewContainerOpts{
-		containerd.WithSnapshotter(c.getDefaultSnapshotterForSandbox(sandboxConfig)),
+		containerd.WithSnapshotter(c.getDefaultSnapshotterForPlatform(sandboxPlatform)),
 		customopts.WithNewSnapshot(id, image.Image),
 	}
 
@@ -219,10 +235,10 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 }
 
 func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxPid uint32, netnsPath string, config *runtime.ContainerConfig,
-	sandboxConfig *runtime.PodSandboxConfig, imageConfig *imagespec.ImageConfig, extraMounts []*runtime.Mount) (*runtimespec.Spec, error) {
+	sandboxConfig *runtime.PodSandboxConfig, sandboxPlatform string, imageConfig *imagespec.ImageConfig, extraMounts []*runtime.Mount) (*runtimespec.Spec, error) {
 	// Creates a spec Generator with the default spec.
 	ctx := ctrdutil.NamespacedContext()
-	spec, err := oci.GenerateSpecWithPlatform(ctx, nil, getDefaultPlatform(sandboxConfig), &containers.Container{ID: id})
+	spec, err := oci.GenerateSpecWithPlatform(ctx, nil, sandboxPlatform, &containers.Container{ID: id})
 	if err != nil {
 		return nil, err
 	}

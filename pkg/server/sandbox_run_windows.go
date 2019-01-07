@@ -24,6 +24,7 @@ import (
 	"github.com/containerd/containerd/containers"
 	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/oci"
+	runhcsoptions "github.com/containerd/containerd/runtime/v2/runhcs/options"
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
 	runtimespec "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
@@ -66,30 +67,43 @@ func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandbox
 	}()
 
 	// Create initial internal sandbox object.
+	runtimeHandler := r.GetRuntimeHandler()
 	sandbox := sandboxstore.NewSandbox(
 		sandboxstore.Metadata{
 			ID:             id,
 			Name:           name,
 			Config:         config,
-			RuntimeHandler: r.GetRuntimeHandler(),
+			RuntimeHandler: runtimeHandler,
 		},
 		sandboxstore.Status{
 			State: sandboxstore.StateUnknown,
 		},
 	)
 
-	// Ensure sandbox container image snapshot.
-	imageName := c.getDefaultSandboxImage(config)
-	image, err := c.ensureImageExists(ctx, imageName, config)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get sandbox image %q", imageName)
-	}
-
-	ociRuntime, err := c.getSandboxRuntime(config, r.GetRuntimeHandler())
+	ociRuntime, err := c.getSandboxRuntime(config, runtimeHandler)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get sandbox runtime")
 	}
 	logrus.Debugf("Use OCI %+v for sandbox %q", ociRuntime, id)
+
+	// Ensure sandbox container image snapshot.
+	runtimeOpts, err := generateRuntimeOptions(ociRuntime, c.config)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to generate runtime options")
+	}
+	rhcso := runtimeOpts.(*runhcsoptions.Options)
+
+	var imageName string
+	if rhcso.SandboxImage != "" {
+		imageName = rhcso.SandboxImage
+	} else {
+		imageName = c.config.SandboxImage
+	}
+
+	image, err := c.ensureImageExists(ctx, imageName, config)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get sandbox image %q", imageName)
+	}
 
 	// Setup Networking
 	err = c.setupPodNetwork(&sandbox)
@@ -97,21 +111,24 @@ func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandbox
 		return nil, errors.Wrapf(err, "failed to setup networking for sandbox %q", id)
 	}
 
+	var sandboxPlatform string
+	if rhcso.SandboxPlatform != "" {
+		sandboxPlatform = rhcso.SandboxPlatform
+	} else {
+		sandboxPlatform = "windows/amd64"
+	}
+
 	// Create sandbox container.
-	spec, err := c.generateSandboxContainerSpec(id, config, &image.ImageSpec.Config, sandbox.NetNSPath)
+	spec, err := c.generateSandboxContainerSpec(id, config, sandboxPlatform, &image.ImageSpec.Config, sandbox.NetNSPath, rhcso.SandboxIsolation)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate sandbox container spec")
 	}
 
 	sandboxLabels := buildLabels(config.Labels, containerKindSandbox)
 
-	runtimeOpts, err := generateRuntimeOptions(ociRuntime, c.config)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to generate runtime options")
-	}
 	opts := []containerd.NewContainerOpts{
 		containerd.WithImage(image.Image),
-		containerd.WithSnapshotter(c.getDefaultSnapshotterForSandbox(config)),
+		containerd.WithSnapshotter(c.getDefaultSnapshotterForPlatform(sandboxPlatform)),
 		customopts.WithNewSnapshot(id, image.Image),
 		containerd.WithContainerLabels(sandboxLabels),
 		containerd.WithContainerExtension(sandboxMetadataExtension, &sandbox.Metadata),
@@ -248,10 +265,10 @@ func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandbox
 	return &runtime.RunPodSandboxResponse{PodSandboxId: id}, nil
 }
 
-func (c *criService) generateSandboxContainerSpec(id string, config *runtime.PodSandboxConfig,
-	imageConfig *imagespec.ImageConfig, nsPath string) (*runtimespec.Spec, error) {
+func (c *criService) generateSandboxContainerSpec(id string, config *runtime.PodSandboxConfig, sandboxPlatform string,
+	imageConfig *imagespec.ImageConfig, nsPath string, isolation runhcsoptions.Options_SandboxIsolation) (*runtimespec.Spec, error) {
 	ctx := ctrdutil.NamespacedContext()
-	spec, err := oci.GenerateSpecWithPlatform(ctx, nil, getDefaultPlatform(config), &containers.Container{ID: id})
+	spec, err := oci.GenerateSpecWithPlatform(ctx, nil, sandboxPlatform, &containers.Container{ID: id})
 	if err != nil {
 		return nil, err
 	}
@@ -277,7 +294,7 @@ func (c *criService) generateSandboxContainerSpec(id string, config *runtime.Pod
 	// guest.
 	g.Config.Root = nil
 
-	if getDefaultIsolation(config) == IsolationHyperV {
+	if isolation == runhcsoptions.Options_HYPERVISOR {
 		// TODO: JTERRY75 - This is a hack. Setting to the empty string will
 		// initialize the Windows.HyperV section which is really all we want.
 		g.SetWindowsHypervUntilityVMPath("")
@@ -287,7 +304,7 @@ func (c *criService) generateSandboxContainerSpec(id string, config *runtime.Pod
 	// Set hostname.
 	g.SetHostname(config.GetHostname())
 
-	if !isWindowsLcow(config) {
+	if sandboxPlatform == "linux/amd64" {
 		g.SetProcessUsername(imageConfig.User)
 	}
 
