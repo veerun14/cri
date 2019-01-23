@@ -19,7 +19,9 @@ limitations under the License.
 package server
 
 import (
+	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/containerd/containerd"
@@ -149,7 +151,7 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 		sandboxPlatform = "windows/amd64"
 	}
 
-	spec, err := c.generateContainerSpec(id, sandboxID, sandboxPid, sandbox.NetNSPath, config, sandboxConfig, sandboxPlatform, &image.ImageSpec.Config, nil)
+	spec, err := c.generateContainerSpec(id, sandboxID, sandboxPid, sandbox.NetNSPath, config, sandboxConfig, sandboxPlatform, &image.ImageSpec.Config)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to generate container %q spec", id)
 	}
@@ -235,7 +237,7 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 }
 
 func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxPid uint32, netnsPath string, config *runtime.ContainerConfig,
-	sandboxConfig *runtime.PodSandboxConfig, sandboxPlatform string, imageConfig *imagespec.ImageConfig, extraMounts []*runtime.Mount) (*runtimespec.Spec, error) {
+	sandboxConfig *runtime.PodSandboxConfig, sandboxPlatform string, imageConfig *imagespec.ImageConfig) (*runtimespec.Spec, error) {
 	// Creates a spec Generator with the default spec.
 	ctx := ctrdutil.NamespacedContext()
 	spec, err := oci.GenerateSpecWithPlatform(ctx, nil, sandboxPlatform, &containers.Container{ID: id})
@@ -274,6 +276,53 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 
 	g.AddAnnotation(annotations.ContainerType, annotations.ContainerTypeContainer)
 	g.AddAnnotation(annotations.SandboxID, sandboxID)
+
+	// Add OCI Mounts
+	for _, m := range config.GetMounts() {
+		mo := runtimespec.Mount{
+			Source:      m.HostPath,
+			Destination: m.ContainerPath,
+			Options:     []string{"ro"},
+		}
+		if !m.Readonly {
+			mo.Options[0] = "rw"
+		}
+		if strings.HasPrefix(m.HostPath, `\\.\PHYSICALDRIVE`) {
+			mo.Type = "physical-disk"
+		} else if strings.HasPrefix(m.HostPath, `\\.\pipe`) {
+			// mo.Type == "" for pipe but we don't want to Stat the path.
+			if sandboxPlatform == "linux/amd64" {
+				return nil, errors.Errorf(`pipe mount.HostPath '%s' not supported for LCOW`, m.HostPath)
+			}
+		} else {
+			s, err := os.Stat(m.HostPath)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to Stat mount.HostPath '%s'", m.HostPath)
+			}
+			if !s.IsDir() {
+				ext := strings.ToLower(filepath.Ext(m.HostPath))
+				if ext == ".vhd" || ext == ".vhdx" {
+					mo.Type = "virtual-disk"
+					mo.Options = append(mo.Options, "bind")
+				}
+			}
+			if sandboxPlatform == "linux/amd64" {
+				switch mo.Type {
+				case "":
+					// Linux requires a folder/file to be bind mount.
+					mo.Type = "bind"
+					mo.Options = append(mo.Options, "rbind")
+				case "virtual-disk", "physical-disk":
+					mo.Options = append(mo.Options, "bind")
+
+				}
+			}
+		}
+
+		// TODO: JTERRY75 - Mount Propagation for LCOW?
+
+		g.AddMount(mo)
+	}
 
 	return g.Config, nil
 }
