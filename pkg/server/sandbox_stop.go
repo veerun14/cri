@@ -64,7 +64,7 @@ func (c *criService) StopPodSandbox(ctx context.Context, r *runtime.StopPodSandb
 			return nil, errors.Wrapf(err, "failed to stop sandbox container %q", id)
 		}
 	}
-
+    
 	if err := c.doStopPodSandbox(id, sandbox); err != nil {
 		return nil, err
 	}
@@ -123,5 +123,6 @@ func (c *criService) teardownPod(id string, path string, config *runtime.PodSand
 	return c.netPlugin.Remove(id,
 		path,
 		cni.WithLabels(labels),
-		cni.WithCapabilityPortMap(toCNIPortMappings(config.GetPortMappings())))
+		cni.WithCapabilityPortMap(toCNIPortMappings(config.GetPortMappings())),
+		cni.WithCapability("DNS", toCNIDNS(config.GetDnsConfig())))
 }
