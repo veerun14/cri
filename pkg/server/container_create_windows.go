@@ -21,6 +21,7 @@ package server
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -279,9 +280,22 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 
 	// Add OCI Mounts
 	for _, m := range config.GetMounts() {
+
+		//normalize the format of the container path
+		var formattedDestination string
+		if sandboxPlatform == "linux/amd64" {
+			formattedDestination = strings.Replace(m.ContainerPath, "\\", "/", -1)
+			//kubelet will prepend c: if it's running on Windows and there's no drive letter, so we need to strip it out
+			if match, _ := regexp.MatchString("^[A-Za-z]:", formattedDestination); match {
+				formattedDestination = formattedDestination[2:]
+			}
+		} else {
+			formattedDestination = strings.Replace(m.ContainerPath, "/", "\\", -1)
+		}
+
 		mo := runtimespec.Mount{
 			Source:      m.HostPath,
-			Destination: m.ContainerPath,
+			Destination: formattedDestination,
 			Options:     []string{"ro"},
 		}
 		if !m.Readonly {
