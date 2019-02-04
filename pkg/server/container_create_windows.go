@@ -281,7 +281,8 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 	// Add OCI Mounts
 	for _, m := range config.GetMounts() {
 
-		//normalize the format of the container path
+		//normalize the format of the host and container path
+		var formattedSource = strings.Replace(m.HostPath, "/", "\\", -1)
 		var formattedDestination string
 		if sandboxPlatform == "linux/amd64" {
 			formattedDestination = strings.Replace(m.ContainerPath, "\\", "/", -1)
@@ -294,7 +295,7 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 		}
 
 		mo := runtimespec.Mount{
-			Source:      m.HostPath,
+			Source:      formattedSource,
 			Destination: formattedDestination,
 			Options:     []string{"ro"},
 		}
