@@ -282,7 +282,10 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 	for _, m := range config.GetMounts() {
 
 		//normalize the format of the host and container path
-		var formattedSource = strings.Replace(m.HostPath, "/", "\\", -1)
+		formattedSource, err := filepath.EvalSymlinks(strings.Replace(m.HostPath, "/", "\\", -1))
+		if err != nil {
+			return nil, err
+		}
 		var formattedDestination string
 		if sandboxPlatform == "linux/amd64" {
 			formattedDestination = strings.Replace(m.ContainerPath, "\\", "/", -1)
@@ -302,20 +305,20 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 		if !m.Readonly {
 			mo.Options[0] = "rw"
 		}
-		if strings.HasPrefix(m.HostPath, `\\.\PHYSICALDRIVE`) {
+		if strings.HasPrefix(formattedSource, `\\.\PHYSICALDRIVE`) {
 			mo.Type = "physical-disk"
-		} else if strings.HasPrefix(m.HostPath, `\\.\pipe`) {
+		} else if strings.HasPrefix(formattedSource, `\\.\pipe`) {
 			// mo.Type == "" for pipe but we don't want to Stat the path.
 			if sandboxPlatform == "linux/amd64" {
-				return nil, errors.Errorf(`pipe mount.HostPath '%s' not supported for LCOW`, m.HostPath)
+				return nil, errors.Errorf(`pipe mount.HostPath '%s' not supported for LCOW`, formattedSource)
 			}
 		} else {
-			s, err := os.Stat(m.HostPath)
+			s, err := os.Stat(formattedSource)
 			if err != nil {
-				return nil, errors.Wrapf(err, "failed to Stat mount.HostPath '%s'", m.HostPath)
+				return nil, errors.Wrapf(err, "failed to Stat mount.HostPath '%s'", formattedSource)
 			}
 			if !s.IsDir() {
-				ext := strings.ToLower(filepath.Ext(m.HostPath))
+				ext := strings.ToLower(filepath.Ext(formattedSource))
 				if ext == ".vhd" || ext == ".vhdx" {
 					mo.Type = "virtual-disk"
 					mo.Options = append(mo.Options, "bind")

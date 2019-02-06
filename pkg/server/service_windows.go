@@ -19,6 +19,8 @@ limitations under the License.
 package server
 
 import (
+	"strings"
+
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 )
 
@@ -53,7 +55,7 @@ func (c *criService) getDefaultSnapshotterForSandbox(cfg *runtime.PodSandboxConf
 		platform string
 	)
 	if cfg != nil {
-		platform, _ = cfg.Labels["sandbox-platform"]
+		platform = strings.Replace(cfg.Labels["sandbox-platform"], "-", "/", -1)
 	}
 	return c.getDefaultSnapshotterForPlatform(platform)
 }
@@ -61,6 +63,8 @@ func (c *criService) getDefaultSnapshotterForSandbox(cfg *runtime.PodSandboxConf
 func (c *criService) getDefaultSnapshotterForPlatform(platform string) string {
 	if platform == "linux/amd64" {
 		return "windows-lcow"
+	} else if platform == "windows/amd64" {
+		return "windows"
 	}
 	return c.config.ContainerdConfig.Snapshotter
 }
