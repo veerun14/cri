@@ -39,6 +39,7 @@ import (
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 
 	"github.com/containerd/cri/pkg/annotations"
+	criconfig "github.com/containerd/cri/pkg/config"
 	customopts "github.com/containerd/cri/pkg/containerd/opts"
 	ctrdutil "github.com/containerd/cri/pkg/containerd/util"
 	cio "github.com/containerd/cri/pkg/server/io"
@@ -138,16 +139,20 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 	}()
 
 	var sandboxPlatform string
+
+	// Get the RuntimeHandler config overrides
+	var ociRuntime criconfig.Runtime
 	if sandbox.RuntimeHandler != "" {
-		// Get the RuntimeHandler config overrides
-		ociRuntime := c.config.Runtimes[sandbox.RuntimeHandler]
-		runtimeOpts, err := generateRuntimeOptions(ociRuntime, c.config)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to generate runtime options")
-		}
-		rhcso := runtimeOpts.(*runhcsoptions.Options)
-		sandboxPlatform = rhcso.SandboxPlatform
+		ociRuntime = c.config.Runtimes[sandbox.RuntimeHandler]
+	} else {
+		ociRuntime = c.config.DefaultRuntime
 	}
+	runtimeOpts, err := generateRuntimeOptions(ociRuntime, c.config)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to generate runtime options")
+	}
+	rhcso := runtimeOpts.(*runhcsoptions.Options)
+	sandboxPlatform = rhcso.SandboxPlatform
 	if sandboxPlatform == "" {
 		sandboxPlatform = "windows/amd64"
 	}
