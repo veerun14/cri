@@ -26,6 +26,7 @@ import (
 	sandboxstore "github.com/containerd/cri/pkg/store/sandbox"
 	cni "github.com/containerd/go-cni"
 	"github.com/containerd/typeurl"
+	cniTypes "github.com/containernetworking/cni/pkg/types"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
@@ -112,7 +113,7 @@ func (c *criService) setupPod(id string, path string, config *runtime.PodSandbox
 		path,
 		cni.WithLabels(labels),
 		cni.WithCapabilityPortMap(toCNIPortMappings(config.GetPortMappings())),
-		cni.WithCapability("DNS", toCNIDNS(config.GetDnsConfig())))
+		cni.WithCapability("dns", toCNIDNS(config.GetDnsConfig())))
 	if err != nil {
 		return "", nil, err
 	}
@@ -146,7 +147,7 @@ func toCNIPortMappings(criPortMappings []*runtime.PortMapping) []cni.PortMapping
 }
 
 // toCNIDNS converts CRI DnsConfig to CNI.
-func toCNIDNS(criDnsConfig *runtime.DnsConfig) cniTypes.DNS {
+func toCNIDNS(criDnsConfig *runtime.DNSConfig) cniTypes.DNS {
 	var dns = cniTypes.DNS{
 		Nameservers: criDnsConfig.Servers,
 		// criDnsConfig does not have a Domain Field
