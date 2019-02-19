@@ -66,7 +66,7 @@ help:
 	@echo " * 'version'          	- Print current cri plugin release version"
 	@echo " * 'update-vendor'    	- Syncs containerd/vendor.conf -> vendor.conf and sorts vendor.conf"
 
-verify: lint gofmt boiler
+verify: lint gofmt boiler check-vendor
 
 version:
 	@echo $(VERSION)
@@ -82,6 +82,10 @@ gofmt:
 boiler:
 	@echo "checking boilerplate"
 	@./hack/verify-boilerplate.sh
+
+check-vendor:
+	@echo "detecting dirty vendor"
+	@./hack/verify-vendor.sh
 
 .PHONY: sort-vendor sync-vendor update-vendor
 
@@ -160,7 +164,8 @@ push: $(BUILD_DIR)/$(TARBALL)
 	@BUILD_DIR=$(BUILD_DIR) TARBALL=$(TARBALL) VERSION=$(VERSION) ./hack/push.sh
 
 proto:
-	@hack/update-proto.sh
+	@API_PATH=pkg/api/v1 hack/update-proto.sh
+	@API_PATH=pkg/api/runtimeoptions/v1 hack/update-proto.sh
 
 .PHONY: install.deps
 
@@ -177,9 +182,9 @@ else
 	git-validation -v -run DCO,short-subject -range $(EPOCH_TEST_COMMIT)..HEAD
 endif
 
-.PHONY: install.tools .install.gitvalidation .install.gometalinter
+.PHONY: install.tools .install.gitvalidation .install.gometalinter .install.vndr
 
-install.tools: .install.gitvalidation .install.gometalinter
+install.tools: .install.gitvalidation .install.gometalinter .install.vndr
 
 .install.gitvalidation:
 	$(GO) get -u github.com/vbatts/git-validation
@@ -187,6 +192,9 @@ install.tools: .install.gitvalidation .install.gometalinter
 .install.gometalinter:
 	$(GO) get -u github.com/alecthomas/gometalinter
 	gometalinter --install
+
+.install.vndr:
+	$(GO) get -u github.com/LK4D4/vndr
 
 .PHONY: \
 	binaries \
@@ -210,4 +218,5 @@ install.tools: .install.gitvalidation .install.gometalinter
 	test-e2e-node \
 	uninstall \
 	version \
-	proto
+	proto \
+	check-vendor

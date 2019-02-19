@@ -19,15 +19,21 @@ package server
 import (
 	"strings"
 
+	containerstore "github.com/containerd/cri/pkg/store/container"
+	"github.com/containerd/typeurl"
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
-	"github.com/opencontainers/runtime-tools/generate"
 	"github.com/pkg/errors"
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 )
 
+func init() {
+	typeurl.Register(&containerstore.Metadata{},
+		"github.com/containerd/cri/pkg/store/container", "Metadata")
+}
+
 // setOCIProcessArgs sets process args. It returns error if the final arg list
 // is empty.
-func setOCIProcessArgs(g *generate.Generator, config *runtime.ContainerConfig, imageConfig *imagespec.ImageConfig) error {
+func setOCIProcessArgs(g *generator, config *runtime.ContainerConfig, imageConfig *imagespec.ImageConfig) error {
 	command, args := config.GetCommand(), config.GetArgs()
 	// The following logic is migrated from https://github.com/moby/moby/blob/master/daemon/commit.go
 	// TODO(random-liu): Clearly define the commands overwrite behavior.
@@ -49,7 +55,7 @@ func setOCIProcessArgs(g *generate.Generator, config *runtime.ContainerConfig, i
 
 // addImageEnvs adds environment variables from image config. It returns error if
 // an invalid environment variable is encountered.
-func addImageEnvs(g *generate.Generator, imageEnvs []string) error {
+func addImageEnvs(g *generator, imageEnvs []string) error {
 	for _, e := range imageEnvs {
 		kv := strings.SplitN(e, "=", 2)
 		if len(kv) != 2 {

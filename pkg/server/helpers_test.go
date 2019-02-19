@@ -23,7 +23,9 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/containerd/containerd/runtime/linux/runctypes"
 	runcoptions "github.com/containerd/containerd/runtime/v2/runc/options"
+	"github.com/docker/distribution/reference"
 	imagedigest "github.com/opencontainers/go-digest"
+	runtimespec "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
@@ -31,7 +33,6 @@ import (
 	criconfig "github.com/containerd/cri/pkg/config"
 	"github.com/containerd/cri/pkg/store"
 	imagestore "github.com/containerd/cri/pkg/store/image"
-	"github.com/containerd/cri/pkg/util"
 )
 
 // TestGetUserFromImage tests the logic of getting image uid or user name of image user.
@@ -104,7 +105,7 @@ func TestGetRepoDigestAndTag(t *testing.T) {
 		},
 	} {
 		t.Logf("TestCase %q", desc)
-		named, err := util.NormalizeImageRef(test.ref)
+		named, err := reference.ParseDockerRef(test.ref)
 		assert.NoError(t, err)
 		repoDigest, repoTag := getRepoDigestAndTag(named, digest, test.schema1)
 		assert.Equal(t, test.expectedRepoDigest, repoDigest)
@@ -320,4 +321,88 @@ func TestRestrictOOMScoreAdj(t *testing.T) {
 	got, err = restrictOOMScoreAdj(current + 1)
 	require.NoError(t, err)
 	assert.Equal(t, got, current+1)
+}
+
+func TestCustomGenerator(t *testing.T) {
+	for desc, test := range map[string]struct {
+		existing  []string
+		kv        [][2]string
+		expected  []string
+		expectNil bool
+	}{
+		"empty": {
+			expectNil: true,
+		},
+		"single env": {
+			kv: [][2]string{
+				{"a", "b"},
+			},
+			expected: []string{"a=b"},
+		},
+		"multiple envs": {
+			kv: [][2]string{
+				{"a", "b"},
+				{"c", "d"},
+				{"e", "f"},
+			},
+			expected: []string{
+				"a=b",
+				"c=d",
+				"e=f",
+			},
+		},
+		"env override": {
+			kv: [][2]string{
+				{"k1", "v1"},
+				{"k2", "v2"},
+				{"k3", "v3"},
+				{"k3", "v4"},
+				{"k1", "v5"},
+				{"k4", "v6"},
+			},
+			expected: []string{
+				"k1=v5",
+				"k2=v2",
+				"k3=v4",
+				"k4=v6",
+			},
+		},
+		"existing env": {
+			existing: []string{
+				"k1=v1",
+				"k2=v2",
+				"k3=v3",
+			},
+			kv: [][2]string{
+				{"k3", "v4"},
+				{"k2", "v5"},
+				{"k4", "v6"},
+			},
+			expected: []string{
+				"k1=v1",
+				"k2=v5",
+				"k3=v4",
+				"k4=v6",
+			},
+		},
+	} {
+		t.Logf("TestCase %q", desc)
+		var spec *runtimespec.Spec
+		if len(test.existing) > 0 {
+			spec = &runtimespec.Spec{
+				Process: &runtimespec.Process{
+					Env: test.existing,
+				},
+			}
+		}
+		g := newSpecGenerator(spec)
+		for _, kv := range test.kv {
+			g.AddProcessEnv(kv[0], kv[1])
+		}
+		if test.expectNil {
+			assert.Nil(t, g.Config)
+		} else {
+			assert.Equal(t, test.expected, g.Config.Process.Env)
+		}
+	}
 }

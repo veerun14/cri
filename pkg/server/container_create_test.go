@@ -450,8 +450,9 @@ func TestContainerSpecCommand(t *testing.T) {
 	} {
 
 		config, _, imageConfig, _ := getCreateContainerTestData()
-		g, err := generate.New("linux")
+		og, err := generate.New("linux")
 		assert.NoError(t, err)
+		g := newCustomGenerator(og)
 		config.Command = test.criEntrypoint
 		config.Args = test.criArgs
 		imageConfig.Entrypoint = test.imageEntrypoint
@@ -535,6 +536,11 @@ func TestGenerateContainerMounts(t *testing.T) {
 			},
 			expectedMounts: []*runtime.Mount{
 				{
+					ContainerPath: "/etc/hostname",
+					HostPath:      filepath.Join(testRootDir, sandboxesDir, testSandboxID, "hostname"),
+					Readonly:      true,
+				},
+				{
 					ContainerPath: "/etc/hosts",
 					HostPath:      filepath.Join(testRootDir, sandboxesDir, testSandboxID, "hosts"),
 					Readonly:      true,
@@ -554,6 +560,11 @@ func TestGenerateContainerMounts(t *testing.T) {
 		"should setup rw mount when rootfs is read-write": {
 			securityContext: &runtime.LinuxContainerSecurityContext{},
 			expectedMounts: []*runtime.Mount{
+				{
+					ContainerPath: "/etc/hostname",
+					HostPath:      filepath.Join(testRootDir, sandboxesDir, testSandboxID, "hostname"),
+					Readonly:      false,
+				},
 				{
 					ContainerPath: "/etc/hosts",
 					HostPath:      filepath.Join(testRootDir, sandboxesDir, testSandboxID, "hosts"),
@@ -577,6 +588,11 @@ func TestGenerateContainerMounts(t *testing.T) {
 			},
 			expectedMounts: []*runtime.Mount{
 				{
+					ContainerPath: "/etc/hostname",
+					HostPath:      filepath.Join(testRootDir, sandboxesDir, testSandboxID, "hostname"),
+					Readonly:      false,
+				},
+				{
 					ContainerPath: "/etc/hosts",
 					HostPath:      filepath.Join(testRootDir, sandboxesDir, testSandboxID, "hosts"),
 					Readonly:      false,
@@ -595,6 +611,10 @@ func TestGenerateContainerMounts(t *testing.T) {
 		},
 		"should skip container mounts if already mounted by CRI": {
 			criMounts: []*runtime.Mount{
+				{
+					ContainerPath: "/etc/hostname",
+					HostPath:      "/test-etc-hostname",
+				},
 				{
 					ContainerPath: "/etc/hosts",
 					HostPath:      "/test-etc-host",
@@ -645,8 +665,9 @@ func TestPrivilegedBindMount(t *testing.T) {
 		},
 	} {
 		t.Logf("TestCase %q", desc)
-		g, err := generate.New("linux")
+		og, err := generate.New("linux")
 		assert.NoError(t, err)
+		g := newCustomGenerator(og)
 		c := newTestCRIService()
 		c.addOCIBindMounts(&g, nil, "")
 		if test.privileged {
@@ -754,8 +775,9 @@ func TestMountPropagation(t *testing.T) {
 		},
 	} {
 		t.Logf("TestCase %q", desc)
-		g, err := generate.New("linux")
+		og, err := generate.New("linux")
 		assert.NoError(t, err)
+		g := newCustomGenerator(og)
 		c := newTestCRIService()
 		c.os.(*ostesting.FakeOS).LookupMountFn = test.fakeLookupMountFn
 		err = c.addOCIBindMounts(&g, []*runtime.Mount{test.criMount}, "")

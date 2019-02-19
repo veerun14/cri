@@ -29,7 +29,6 @@ import (
 	"github.com/containerd/containerd/containers"
 	"github.com/containerd/containerd/oci"
 	runhcsoptions "github.com/containerd/containerd/runtime/v2/runhcs/options"
-	"github.com/containerd/typeurl"
 	"github.com/davecgh/go-spew/spew"
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
 	runtimespec "github.com/opencontainers/runtime-spec/specs-go"
@@ -46,14 +45,10 @@ import (
 	"github.com/containerd/cri/pkg/util"
 )
 
-func init() {
-	typeurl.Register(&containerstore.Metadata{},
-		"github.com/containerd/cri/pkg/store/container", "Metadata")
-}
-
 // CreateContainer creates a new container in the given PodSandbox.
 func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateContainerRequest) (_ *runtime.CreateContainerResponse, retErr error) {
 	config := r.GetConfig()
+	logrus.Debugf("Container config %+v", config)
 	sandboxConfig := r.GetSandboxConfig()
 	sandbox, err := c.sandboxStore.Get(r.GetPodSandboxId())
 	if err != nil {
