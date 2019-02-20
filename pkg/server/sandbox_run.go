@@ -148,6 +148,9 @@ func toCNIPortMappings(criPortMappings []*runtime.PortMapping) []cni.PortMapping
 
 // toCNIDNS converts CRI DnsConfig to CNI.
 func toCNIDNS(criDnsConfig *runtime.DNSConfig) cniTypes.DNS {
+	if criDnsConfig == nil {
+		return cniTypes.DNS{}
+	}
 	var dns = cniTypes.DNS{
 		Nameservers: criDnsConfig.Servers,
 		// criDnsConfig does not have a Domain Field
