@@ -26,6 +26,7 @@ import (
 	sandboxstore "github.com/containerd/cri/pkg/store/sandbox"
 	cni "github.com/containerd/go-cni"
 	"github.com/containerd/typeurl"
+	cniTypes "github.com/containernetworking/cni/pkg/types"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
@@ -111,7 +112,8 @@ func (c *criService) setupPod(id string, path string, config *runtime.PodSandbox
 	result, err := c.netPlugin.Setup(id,
 		path,
 		cni.WithLabels(labels),
-		cni.WithCapabilityPortMap(toCNIPortMappings(config.GetPortMappings())))
+		cni.WithCapabilityPortMap(toCNIPortMappings(config.GetPortMappings())),
+		cni.WithCapability("dns", toCNIDNS(config.GetDnsConfig())))
 	if err != nil {
 		return "", nil, err
 	}
@@ -142,6 +144,20 @@ func toCNIPortMappings(criPortMappings []*runtime.PortMapping) []cni.PortMapping
 		})
 	}
 	return portMappings
+}
+
+// toCNIDNS converts CRI DnsConfig to CNI.
+func toCNIDNS(criDnsConfig *runtime.DNSConfig) cniTypes.DNS {
+	if criDnsConfig == nil {
+		return cniTypes.DNS{}
+	}
+	var dns = cniTypes.DNS{
+		Nameservers: criDnsConfig.Servers,
+		// criDnsConfig does not have a Domain Field
+		Search:  criDnsConfig.Searches,
+		Options: criDnsConfig.Options,
+	}
+	return dns
 }
 
 // selectPodIP select an ip from the ip list. It prefers ipv4 more than ipv6.

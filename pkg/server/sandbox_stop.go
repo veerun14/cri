@@ -150,7 +150,8 @@ func (c *criService) teardownPod(id string, path string, config *runtime.PodSand
 	return c.netPlugin.Remove(id,
 		path,
 		cni.WithLabels(labels),
-		cni.WithCapabilityPortMap(toCNIPortMappings(config.GetPortMappings())))
+		cni.WithCapabilityPortMap(toCNIPortMappings(config.GetPortMappings())),
+		cni.WithCapability("dns", toCNIDNS(config.GetDnsConfig())))
 }
 
 // cleanupUnknownSandbox cleanup stopped sandbox in unknown state.
