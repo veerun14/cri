@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"crypto/sha1"
 	"encoding/binary"
+	"encoding/hex"
+	"fmt"
 	"strings"
 	"unicode/utf16"
+	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
@@ -25,6 +28,23 @@ type Provider struct {
 	keywordAll uint64
 }
 
+// String returns the `provider`.ID as a string
+func (provider *Provider) String() string {
+	data1 := make([]byte, 4)
+	binary.BigEndian.PutUint32(data1, provider.ID.Data1)
+	data2 := make([]byte, 2)
+	binary.BigEndian.PutUint16(data2, provider.ID.Data2)
+	data3 := make([]byte, 2)
+	binary.BigEndian.PutUint16(data3, provider.ID.Data3)
+	return fmt.Sprintf(
+		"%s-%s-%s-%s-%s",
+		hex.EncodeToString(data1),
+		hex.EncodeToString(data2),
+		hex.EncodeToString(data3),
+		hex.EncodeToString(provider.ID.Data4[:2]),
+		hex.EncodeToString(provider.ID.Data4[2:]))
+}
+
 type providerHandle windows.Handle
 
 // ProviderState informs the provider EnableCallback what action is being
@@ -39,6 +59,15 @@ const (
 	// ProviderStateCaptureState indicates the provider is having its current
 	// state snap-shotted.
 	ProviderStateCaptureState
+)
+
+type eventInfoClass uint32
+
+const (
+	eventInfoClassProviderBinaryTrackInfo eventInfoClass = iota
+	eventInfoClassProviderSetReserved1
+	eventInfoClassProviderSetTraits
+	eventInfoClassProviderUseDescriptorType
 )
 
 // EnableCallback is the form of the callback function that receives provider
@@ -132,6 +161,15 @@ func NewProviderWithID(name string, id *windows.GUID, callback EnableCallback) (
 	metadata.WriteByte(0)                                                   // Null terminator for name
 	binary.LittleEndian.PutUint16(metadata.Bytes(), uint16(metadata.Len())) // Update the size at the beginning of the buffer
 	provider.metadata = metadata.Bytes()
+
+	if err := eventSetInformation(
+		provider.handle,
+		eventInfoClassProviderSetTraits,
+		uintptr(unsafe.Pointer(&provider.metadata[0])),
+		uint32(len(provider.metadata))); err != nil {
+
+		return nil, err
+	}
 
 	return provider, nil
 }
