@@ -22,6 +22,7 @@ import (
 	containerstore "github.com/containerd/cri/pkg/store/container"
 	"github.com/containerd/typeurl"
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
+	runtimespec "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 )
@@ -64,4 +65,39 @@ func addImageEnvs(g *generator, imageEnvs []string) error {
 		g.AddProcessEnv(kv[0], kv[1])
 	}
 	return nil
+}
+
+func setOCIPrivileged(g *generator, config *runtime.ContainerConfig) error {
+	// Add all capabilities in privileged mode.
+	g.SetupPrivileged(true)
+	setOCIBindMountsPrivileged(g)
+	if err := setOCIDevicesPrivileged(g); err != nil {
+		return errors.Wrapf(err, "failed to set devices mapping %+v", config.GetDevices())
+	}
+	return nil
+}
+
+func clearReadOnly(m *runtimespec.Mount) {
+	var opt []string
+	for _, o := range m.Options {
+		if o != "ro" {
+			opt = append(opt, o)
+		}
+	}
+	m.Options = append(opt, "rw")
+}
+
+func setOCIBindMountsPrivileged(g *generator) {
+	spec := g.Config
+	// clear readonly for /sys and cgroup
+	for i, m := range spec.Mounts {
+		if spec.Mounts[i].Destination == "/sys" {
+			clearReadOnly(&spec.Mounts[i])
+		}
+		if m.Type == "cgroup" {
+			clearReadOnly(&spec.Mounts[i])
+		}
+	}
+	spec.Linux.ReadonlyPaths = nil
+	spec.Linux.MaskedPaths = nil
 }

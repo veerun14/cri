@@ -22,17 +22,18 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	goruntime "runtime"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/BurntSushi/toml"
+	runhcsoptions "github.com/Microsoft/hcsshim/cmd/containerd-shim-runhcs-v1/options"
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/containers"
 	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/runtime/linux/runctypes"
 	runcoptions "github.com/containerd/containerd/runtime/v2/runc/options"
-	runhcsoptions "github.com/Microsoft/hcsshim/cmd/containerd-shim-runhcs-v1/options"
 	"github.com/containerd/typeurl"
 	"github.com/docker/distribution/reference"
 	imagedigest "github.com/opencontainers/go-digest"
@@ -363,7 +364,12 @@ func buildLabels(configLabels map[string]string, containerType string) map[strin
 // newSpecGenerator creates a new spec generator for the runtime spec.
 func newSpecGenerator(spec *runtimespec.Spec) generator {
 	g := generate.NewFromSpec(spec)
-	g.HostSpecific = true
+	if goruntime.GOOS == "windows" && spec.Linux != nil {
+		// For Windows LCOW we do not want host specific validation
+		g.HostSpecific = false
+	} else {
+		g.HostSpecific = true
+	}
 	return newCustomGenerator(g)
 }
 
