@@ -47,12 +47,6 @@ func init() {
 }
 
 func main() {
-	err := initLoggers()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "containerd: %s\n", err)
-		os.Exit(1)
-	}
-
 	app := command.App()
 	logrus.Warn("This customized containerd is only for CI test, DO NOT use it for distribution.")
 	if err := app.Run(os.Args); err != nil {
