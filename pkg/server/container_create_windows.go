@@ -342,5 +342,25 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 		g.AddMount(mo)
 	}
 
+	if sandboxPlatform == "linux/amd64" {
+		if config.GetLinux().GetSecurityContext().GetPrivileged() {
+			if !sandboxConfig.GetLinux().GetSecurityContext().GetPrivileged() {
+				return nil, errors.New("no privileged container allowed in sandbox")
+			}
+			if err := setOCIPrivileged(&g, config); err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	return g.Config, nil
+}
+
+// setOCIDevicesPrivileged set device mapping with privilege.
+func setOCIDevicesPrivileged(g *generator) error {
+	// For Windows LCOW we cannot calculate the proper host device list. We
+	// forward a custom annotation to the guest to signal it to calculate the
+	// list itself.
+	g.AddAnnotation("io.microsoft.virtualmachine.lcow.privileged", "true")
+	return nil
 }

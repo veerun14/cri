@@ -518,26 +518,6 @@ func (c *criService) generateContainerMounts(sandboxID string, config *runtime.C
 	return mounts
 }
 
-func setOCIPrivileged(g *generator, config *runtime.ContainerConfig) error {
-	// Add all capabilities in privileged mode.
-	g.SetupPrivileged(true)
-	setOCIBindMountsPrivileged(g)
-	if err := setOCIDevicesPrivileged(g); err != nil {
-		return errors.Wrapf(err, "failed to set devices mapping %+v", config.GetDevices())
-	}
-	return nil
-}
-
-func clearReadOnly(m *runtimespec.Mount) {
-	var opt []string
-	for _, o := range m.Options {
-		if o != "ro" {
-			opt = append(opt, o)
-		}
-	}
-	m.Options = append(opt, "rw")
-}
-
 // addDevices set device mapping without privilege.
 func (c *criService) addOCIDevices(g *generator, devs []*runtime.Device) error {
 	spec := g.Config
@@ -705,21 +685,6 @@ func (c *criService) addOCIBindMounts(g *generator, mounts []*runtime.Mount, mou
 	}
 
 	return nil
-}
-
-func setOCIBindMountsPrivileged(g *generator) {
-	spec := g.Config
-	// clear readonly for /sys and cgroup
-	for i, m := range spec.Mounts {
-		if spec.Mounts[i].Destination == "/sys" {
-			clearReadOnly(&spec.Mounts[i])
-		}
-		if m.Type == "cgroup" {
-			clearReadOnly(&spec.Mounts[i])
-		}
-	}
-	spec.Linux.ReadonlyPaths = nil
-	spec.Linux.MaskedPaths = nil
 }
 
 // setOCILinuxResourceCgroup set container cgroup resource limit.
