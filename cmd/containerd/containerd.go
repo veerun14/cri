@@ -39,7 +39,6 @@ import (
 	_ "github.com/containerd/cri"
 
 	"github.com/containerd/containerd/cmd/containerd/command"
-	"github.com/sirupsen/logrus"
 )
 
 func init() {
@@ -48,7 +47,6 @@ func init() {
 
 func main() {
 	app := command.App()
-	logrus.Warn("This customized containerd is only for CI test, DO NOT use it for distribution.")
 	if err := app.Run(os.Args); err != nil {
 		fmt.Fprintf(os.Stderr, "containerd: %s\n", err)
 		os.Exit(1)
