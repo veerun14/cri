@@ -19,12 +19,12 @@ limitations under the License.
 package server
 
 import (
+	runhcsoptions "github.com/Microsoft/hcsshim/cmd/containerd-shim-runhcs-v1/options"
 	"github.com/containerd/containerd"
 	containerdio "github.com/containerd/containerd/cio"
 	"github.com/containerd/containerd/containers"
 	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/oci"
-	runhcsoptions "github.com/Microsoft/hcsshim/cmd/containerd-shim-runhcs-v1/options"
 	"github.com/davecgh/go-spew/spew"
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
 	runtimespec "github.com/opencontainers/runtime-spec/specs-go"
@@ -101,6 +101,18 @@ func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandbox
 	} else {
 		imageName = c.config.SandboxImage
 	}
+	var sandboxPlatform string
+	if rhcso.SandboxPlatform != "" {
+		sandboxPlatform = rhcso.SandboxPlatform
+	} else {
+		sandboxPlatform = "windows/amd64"
+	}
+	// TODO JTERRY75: This is only required while we dont have a platform for
+	// the image in the cri spec.
+	if config.Labels == nil {
+		config.Labels = make(map[string]string)
+	}
+	config.Labels["sandbox-platform"] = sandboxPlatform
 
 	image, err := c.ensureImageExists(ctx, imageName, config)
 	if err != nil {
@@ -111,13 +123,6 @@ func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandbox
 	err = c.setupPodNetwork(&sandbox)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to setup networking for sandbox %q", id)
-	}
-
-	var sandboxPlatform string
-	if rhcso.SandboxPlatform != "" {
-		sandboxPlatform = rhcso.SandboxPlatform
-	} else {
-		sandboxPlatform = "windows/amd64"
 	}
 
 	// Create sandbox container.
