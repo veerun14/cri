@@ -275,6 +275,11 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 	// Set the Network Namespace
 	g.SetWindowsNetworkNamespace(netnsPath)
 
+	// Forward any annotations from the orchestrator
+	for k, v := range config.Annotations {
+		g.AddAnnotation(k, v)
+	}
+
 	g.AddAnnotation(annotations.ContainerType, annotations.ContainerTypeContainer)
 	g.AddAnnotation(annotations.SandboxID, sandboxID)
 
