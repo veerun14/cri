@@ -38,6 +38,7 @@ import (
 	customopts "github.com/containerd/cri/pkg/containerd/opts"
 	ctrdutil "github.com/containerd/cri/pkg/containerd/util"
 	"github.com/containerd/cri/pkg/log"
+	"github.com/containerd/cri/pkg/netns"
 	sandboxstore "github.com/containerd/cri/pkg/store/sandbox"
 	"github.com/containerd/cri/pkg/util"
 )
@@ -119,11 +120,43 @@ func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandbox
 		return nil, errors.Wrapf(err, "failed to get sandbox image %q", imageName)
 	}
 
-	// Setup Networking
-	err = c.setupPodNetwork(&sandbox)
+	// If it is not in host network namespace then create a namespace and set the sandbox
+	// handle. NetNSPath in sandbox metadata and NetNS is non empty only for non host network
+	// namespaces. If the pod is in host network namespace then both are empty and should not
+	// be used.
+	sandbox.NetNS, err = netns.NewNetNS()
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to setup networking for sandbox %q", id)
+		return nil, errors.Wrapf(err, "failed to create network namespace for sandbox %q", id)
 	}
+	sandbox.NetNSPath = sandbox.NetNS.GetPath()
+	defer func() {
+		if retErr != nil {
+			if err := sandbox.NetNS.Remove(); err != nil {
+				logrus.WithError(err).Errorf("Failed to remove network namespace %s for sandbox %q", sandbox.NetNSPath, id)
+			}
+			sandbox.NetNSPath = ""
+		}
+	}()
+	// Setup network for sandbox.
+	// Certain VM based solutions like clear containers (Issue containerd/cri-containerd#524)
+	// rely on the assumption that CRI shim will not be querying the network namespace to check the
+	// network states such as IP.
+	// In future runtime implementation should avoid relying on CRI shim implementation details.
+	// In this case however caching the IP will add a subtle performance enhancement by avoiding
+	// calls to network namespace of the pod to query the IP of the veth interface on every
+	// SandboxStatus request.
+	sandbox.IP, sandbox.CNIResult, err = c.setupPod(id, sandbox.NetNSPath, config)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to setup network for sandbox %q", id)
+	}
+	defer func() {
+		if retErr != nil {
+			// Teardown network if an error is returned.
+			if err := c.teardownPod(id, sandbox.NetNSPath, config); err != nil {
+				logrus.WithError(err).Errorf("Failed to destroy network for sandbox %q", id)
+			}
+		}
+	}()
 
 	// Create sandbox container.
 	spec, err := c.generateSandboxContainerSpec(id, config, sandboxPlatform, &image.ImageSpec.Config, sandbox.NetNSPath, rhcso.SandboxIsolation)
