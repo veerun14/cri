@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	"github.com/containerd/cri/pkg/annotations"
-	"github.com/containerd/cri/pkg/netns"
 	sandboxstore "github.com/containerd/cri/pkg/store/sandbox"
 	cni "github.com/containerd/go-cni"
 	"github.com/containerd/typeurl"
@@ -59,47 +58,6 @@ func parseDNSOptions(servers, searches, options []string) (string, error) {
 	}
 
 	return resolvContent, nil
-}
-
-func (c *criService) setupPodNetwork(sandbox *sandboxstore.Sandbox) (retErr error) {
-	id := sandbox.Metadata.ID
-	netns, err := netns.NewNetNS()
-	if err != nil {
-		return errors.Wrapf(err, "failed to create network namespace for sandbox %q", id)
-	}
-	sandbox.NetNS = netns
-	config := sandbox.Metadata.Config
-	sandbox.NetNSPath = sandbox.NetNS.GetPath()
-	defer func() {
-		if retErr != nil {
-			if err := sandbox.NetNS.Remove(); err != nil {
-				logrus.WithError(err).Errorf("Failed to remove network namespace %s for sandbox %q", sandbox.NetNSPath, id)
-			}
-			sandbox.NetNSPath = ""
-		}
-	}()
-	// Setup network for sandbox.
-	// Certain VM based solutions like clear containers (Issue containerd/cri-containerd#524)
-	// rely on the assumption that CRI shim will not be querying the network namespace to check the
-	// network states such as IP.
-	// In future runtime implementation should avoid relying on CRI shim implementation details.
-	// In this case however caching the IP will add a subtle performance enhancement by avoiding
-	// calls to network namespace of the pod to query the IP of the veth interface on every
-	// SandboxStatus request.
-	sandbox.IP, _, err = c.setupPod(id, sandbox.NetNSPath, config)
-	if err != nil {
-		return errors.Wrapf(err, "failed to setup network for sandbox %q", id)
-	}
-	defer func() {
-		if retErr != nil {
-			// Teardown network if an error is returned.
-			if err := c.teardownPod(id, sandbox.NetNSPath, config); err != nil {
-				logrus.WithError(err).Errorf("Failed to destroy network for sandbox %q", id)
-			}
-		}
-	}()
-
-	return nil
 }
 
 // setupPod setups up the network for a pod
