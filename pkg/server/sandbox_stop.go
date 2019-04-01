@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"syscall"
 	"time"
 
 	"github.com/containerd/containerd"
@@ -112,14 +113,8 @@ func (c *criService) stopSandboxContainer(ctx context.Context, sandbox sandboxst
 		}
 	}
 
-	spec, err := container.Spec(ctx)
-	if err != nil {
-		return errors.Wrap(err, "failed to get container spec")
-	}
-
-	stopSignal := getSysKillSignal(spec)
 	// Kill the sandbox container.
-	if err = task.Kill(ctx, stopSignal); err != nil && !errdefs.IsNotFound(err) {
+	if err = task.Kill(ctx, syscall.SIGKILL); err != nil && !errdefs.IsNotFound(err) {
 		return errors.Wrap(err, "failed to kill sandbox container")
 	}
 

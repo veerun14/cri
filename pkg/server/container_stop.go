@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"syscall"
 	"time"
 
 	"github.com/containerd/containerd"
@@ -106,11 +107,6 @@ func (c *criService) stopContainer(ctx context.Context, container containerstore
 		}
 	}
 
-	spec, err := container.Container.Spec(ctx)
-	if err != nil {
-		return errors.Wrapf(err, "failed to get container spec")
-	}
-
 	// We only need to kill the task. The event handler will Delete the
 	// task from containerd after it handles the Exited event.
 	if timeout > 0 {
@@ -153,9 +149,8 @@ func (c *criService) stopContainer(ctx context.Context, container containerstore
 		logrus.WithError(err).Errorf("An error occurs during waiting for container %q to be stopped", id)
 	}
 
-	stopSignal := getSysKillSignal(spec)
 	logrus.Infof("Kill container %q", id)
-	if err = task.Kill(ctx, stopSignal); err != nil && !errdefs.IsNotFound(err) {
+	if err = task.Kill(ctx, syscall.SIGKILL); err != nil && !errdefs.IsNotFound(err) {
 		return errors.Wrapf(err, "failed to kill container %q", id)
 	}
 
