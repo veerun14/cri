@@ -25,7 +25,6 @@ import (
 	sandboxstore "github.com/containerd/cri/pkg/store/sandbox"
 	cni "github.com/containerd/go-cni"
 	"github.com/containerd/typeurl"
-	cniTypes "github.com/containernetworking/cni/pkg/types"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
@@ -104,16 +103,23 @@ func toCNIPortMappings(criPortMappings []*runtime.PortMapping) []cni.PortMapping
 	return portMappings
 }
 
+// https://github.com/kubernetes/kubernetes/blob/master/pkg/kubelet/dockershim/network/cni/cni.go#L104
+type RuntimeDNSConfig struct {
+	Servers  []string `json:"servers,omitempty"`
+	Searches []string `json:"searches,omitempty"`
+	Options  []string `json:"options,omitempty"`
+}
+
 // toCNIDNS converts CRI DnsConfig to CNI.
-func toCNIDNS(criDnsConfig *runtime.DNSConfig) cniTypes.DNS {
+func toCNIDNS(criDnsConfig *runtime.DNSConfig) RuntimeDNSConfig {
 	if criDnsConfig == nil {
-		return cniTypes.DNS{}
+		return RuntimeDNSConfig{}
 	}
-	var dns = cniTypes.DNS{
-		Nameservers: criDnsConfig.Servers,
+	var dns = RuntimeDNSConfig{
+		Servers: criDnsConfig.Servers,
 		// criDnsConfig does not have a Domain Field
-		Search:  criDnsConfig.Searches,
-		Options: criDnsConfig.Options,
+		Searches: criDnsConfig.Searches,
+		Options:  criDnsConfig.Options,
 	}
 	return dns
 }
