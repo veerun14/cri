@@ -15,10 +15,36 @@ limitations under the License.
 
 package server
 
-import "github.com/containerd/containerd"
+import (
+	"os"
+
+	"github.com/containerd/containerd"
+	"golang.org/x/sys/windows"
+)
 
 func addOptWithNoPivotRoot(taskOpts []containerd.NewTaskOpts) []containerd.NewTaskOpts {
 	// TODO: JTERRY75 - For LCOW we should actually forward this call all the
 	// way to the runc in the guest.
 	return taskOpts
+}
+
+func openContainerOutputFile(path string) (*os.File, error) {
+	u16, err := windows.UTF16PtrFromString(path)
+	if err != nil {
+		return nil, err
+	}
+
+	h, err := windows.CreateFile(
+		u16,
+		windows.FILE_APPEND_DATA,
+		windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE,
+		nil,
+		windows.OPEN_ALWAYS,
+		windows.FILE_ATTRIBUTE_NORMAL,
+		0)
+	if err != nil {
+		return nil, err
+	}
+
+	return os.NewFile(uintptr(h), path), nil
 }

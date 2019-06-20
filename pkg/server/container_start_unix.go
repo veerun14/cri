@@ -20,3 +20,7 @@ import "github.com/containerd/containerd"
 func addOptWithNoPivotRoot(taskOpts []containerd.NewTaskOpts) []containerd.NewTaskOpts {
 	return append(taskOpts, containerd.WithNoPivotRoot)
 }
+
+func openContainerOutputFile(path string) (*os.File, error) {
+	return os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0640)
+}
