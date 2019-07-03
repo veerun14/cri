@@ -810,17 +810,6 @@ func setOCICapabilities(g *generator, capabilities *runtime.Capability) error {
 	return nil
 }
 
-// setOCINamespaces sets namespaces.
-func setOCINamespaces(g *generator, namespaces *runtime.NamespaceOption, sandboxPid uint32) {
-	g.AddOrReplaceLinuxNamespace(string(runtimespec.NetworkNamespace), getNetworkNamespace(sandboxPid)) // nolint: errcheck
-	g.AddOrReplaceLinuxNamespace(string(runtimespec.IPCNamespace), getIPCNamespace(sandboxPid))         // nolint: errcheck
-	g.AddOrReplaceLinuxNamespace(string(runtimespec.UTSNamespace), getUTSNamespace(sandboxPid))         // nolint: errcheck
-	// Do not share pid namespace if namespace mode is CONTAINER.
-	if namespaces.GetPid() != runtime.NamespaceMode_CONTAINER {
-		g.AddOrReplaceLinuxNamespace(string(runtimespec.PIDNamespace), getPIDNamespace(sandboxPid)) // nolint: errcheck
-	}
-}
-
 // defaultRuntimeSpec returns a default runtime spec used in cri-containerd.
 func defaultRuntimeSpec(id string) (*runtimespec.Spec, error) {
 	// GenerateSpec needs namespace.

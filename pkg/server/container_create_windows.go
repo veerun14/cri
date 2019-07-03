@@ -348,7 +348,8 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 	}
 
 	if sandboxPlatform == "linux/amd64" {
-		if config.GetLinux().GetSecurityContext().GetPrivileged() {
+		securityContext := config.GetLinux().GetSecurityContext()
+		if securityContext.GetPrivileged() {
 			if !sandboxConfig.GetLinux().GetSecurityContext().GetPrivileged() {
 				return nil, errors.New("no privileged container allowed in sandbox")
 			}
@@ -356,6 +357,7 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 				return nil, err
 			}
 		}
+		setOCINamespaces(&g, securityContext.GetNamespaceOptions(), sandboxPid)
 	}
 
 	return g.Config, nil

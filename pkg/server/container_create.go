@@ -101,3 +101,14 @@ func setOCIBindMountsPrivileged(g *generator) {
 	spec.Linux.ReadonlyPaths = nil
 	spec.Linux.MaskedPaths = nil
 }
+
+// setOCINamespaces sets namespaces.
+func setOCINamespaces(g *generator, namespaces *runtime.NamespaceOption, sandboxPid uint32) {
+	g.AddOrReplaceLinuxNamespace(string(runtimespec.NetworkNamespace), getNetworkNamespace(sandboxPid)) // nolint: errcheck
+	g.AddOrReplaceLinuxNamespace(string(runtimespec.IPCNamespace), getIPCNamespace(sandboxPid))         // nolint: errcheck
+	g.AddOrReplaceLinuxNamespace(string(runtimespec.UTSNamespace), getUTSNamespace(sandboxPid))         // nolint: errcheck
+	// Do not share pid namespace if namespace mode is CONTAINER.
+	if namespaces.GetPid() != runtime.NamespaceMode_CONTAINER {
+		g.AddOrReplaceLinuxNamespace(string(runtimespec.PIDNamespace), getPIDNamespace(sandboxPid)) // nolint: errcheck
+	}
+}
