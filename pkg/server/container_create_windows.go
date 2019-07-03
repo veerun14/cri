@@ -258,6 +258,12 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 	}
 
 	g.SetProcessTerminal(config.GetTty())
+	if sandboxPlatform == "linux/amd64" {
+		g.AddProcessEnv("TERM", "xterm")
+		if sandboxConfig.GetHostname() != "" {
+			g.AddProcessEnv(hostnameEnv, sandboxConfig.GetHostname())
+		}
+	}
 
 	// Apply envs from image config first, so that envs from container config
 	// can override them.
@@ -348,7 +354,8 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 	}
 
 	if sandboxPlatform == "linux/amd64" {
-		if config.GetLinux().GetSecurityContext().GetPrivileged() {
+		securityContext := config.GetLinux().GetSecurityContext()
+		if securityContext.GetPrivileged() {
 			if !sandboxConfig.GetLinux().GetSecurityContext().GetPrivileged() {
 				return nil, errors.New("no privileged container allowed in sandbox")
 			}
@@ -356,6 +363,7 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 				return nil, err
 			}
 		}
+		setOCINamespaces(&g, securityContext.GetNamespaceOptions(), sandboxPid)
 	}
 
 	return g.Config, nil
