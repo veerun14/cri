@@ -363,6 +363,19 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 				return nil, err
 			}
 		}
+		userstr, err := generateUserString(
+			securityContext.GetRunAsUsername(),
+			securityContext.GetRunAsUser(),
+			securityContext.GetRunAsGroup())
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to generate user string")
+		}
+		if userstr != "" {
+			g.AddAnnotation("io.microsoft.lcow.userstr", userstr)
+		}
+		for _, group := range securityContext.GetSupplementalGroups() {
+			g.AddProcessAdditionalGid(uint32(group))
+		}
 		setOCINamespaces(&g, securityContext.GetNamespaceOptions(), sandboxPid)
 	}
 

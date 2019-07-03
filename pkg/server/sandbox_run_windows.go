@@ -347,6 +347,22 @@ func (c *criService) generateSandboxContainerSpec(id string, config *runtime.Pod
 
 	if sandboxPlatform == "linux/amd64" {
 		g.SetProcessUsername(imageConfig.User)
+
+		securityContext := config.GetLinux().GetSecurityContext()
+		userstr, err := generateUserString(
+			"",
+			securityContext.GetRunAsUser(),
+			securityContext.GetRunAsGroup())
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to generate user string")
+		}
+		if userstr != "" {
+			g.AddAnnotation("io.microsoft.lcow.userstr", userstr)
+		}
+
+		for _, group := range securityContext.GetSupplementalGroups() {
+			g.AddProcessAdditionalGid(uint32(group))
+		}
 	}
 
 	// Forward any annotations from the orchestrator
