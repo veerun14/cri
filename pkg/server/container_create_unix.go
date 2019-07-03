@@ -945,31 +945,6 @@ func ensureSharedOrSlave(path string, lookupMount func(string) (mount.Info, erro
 	return errors.Errorf("path %q is mounted on %q but it is not a shared or slave mount", path, mountInfo.Mountpoint)
 }
 
-// generateUserString generates valid user string based on OCI Image Spec v1.0.0.
-// TODO(random-liu): Add group name support in CRI.
-func generateUserString(username string, uid, gid *runtime.Int64Value) (string, error) {
-	var userstr, groupstr string
-	if uid != nil {
-		userstr = strconv.FormatInt(uid.GetValue(), 10)
-	}
-	if username != "" {
-		userstr = username
-	}
-	if gid != nil {
-		groupstr = strconv.FormatInt(gid.GetValue(), 10)
-	}
-	if userstr == "" {
-		if groupstr != "" {
-			return "", errors.Errorf("user group %q is specified without user", groupstr)
-		}
-		return "", nil
-	}
-	if groupstr != "" {
-		userstr = userstr + ":" + groupstr
-	}
-	return userstr, nil
-}
-
 // mergeMounts merge CRI mounts with extra mounts. If a mount destination
 // is mounted by both a CRI mount and an extra mount, the CRI mount will
 // be kept.
