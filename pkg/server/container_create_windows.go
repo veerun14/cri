@@ -100,6 +100,10 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to resolve image %q", config.GetImage().GetImage())
 	}
+	containerdImage, err := c.toContainerdImage(ctx, image)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get image from containerd %q", image.ID)
+	}
 
 	// Run container using the same runtime with sandbox.
 	sandboxInfo, err := sandbox.Container.Info(ctx)
@@ -173,7 +177,7 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 	// Set snapshotter before any other options.
 	opts := []containerd.NewContainerOpts{
 		containerd.WithSnapshotter(c.getDefaultSnapshotterForPlatform(sandboxPlatform)),
-		customopts.WithNewSnapshot(id, image.Image, snapshotterOpt),
+		customopts.WithNewSnapshot(id, containerdImage, snapshotterOpt),
 	}
 
 	meta.ImageRef = image.ID
