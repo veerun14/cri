@@ -19,12 +19,13 @@ limitations under the License.
 package server
 
 import (
+	"context"
 	"io"
 
 	"github.com/pkg/errors"
 )
 
 // portForward is not yet supported on Windows.
-func (c *criService) portForward(id string, port int32, stream io.ReadWriteCloser) error {
+func (c *criService) portForward(ctx context.Context, id string, port int32, stream io.ReadWriteCloser) error {
 	return errors.New("portForward not yet supported on Windows")
 }

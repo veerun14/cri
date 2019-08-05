@@ -17,16 +17,19 @@ limitations under the License.
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
 
-	"github.com/containerd/cri/pkg/annotations"
-	sandboxstore "github.com/containerd/cri/pkg/store/sandbox"
+	"github.com/containerd/containerd/log"
 	cni "github.com/containerd/go-cni"
 	"github.com/containerd/typeurl"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+
+	"github.com/containerd/cri/pkg/annotations"
+	sandboxstore "github.com/containerd/cri/pkg/store/sandbox"
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 )
 
@@ -60,7 +63,7 @@ func parseDNSOptions(servers, searches, options []string) (string, error) {
 }
 
 // setupPod setups up the network for a pod
-func (c *criService) setupPod(id string, path string, config *runtime.PodSandboxConfig) (string, *cni.CNIResult, error) {
+func (c *criService) setupPod(ctx context.Context, id string, path string, config *runtime.PodSandboxConfig) (string, *cni.CNIResult, error) {
 	if c.netPlugin == nil {
 		return "", nil, errors.New("cni config not initialized")
 	}
@@ -74,14 +77,14 @@ func (c *criService) setupPod(id string, path string, config *runtime.PodSandbox
 	if err != nil {
 		return "", nil, err
 	}
-	logDebugCNIResult(id, result)
+	logDebugCNIResult(ctx, id, result)
 	// Check if the default interface has IP config
 	if configs, ok := result.Interfaces[defaultIfName]; ok && len(configs.IPConfigs) > 0 {
 		return selectPodIP(configs.IPConfigs), result, nil
 	}
 	// If it comes here then the result was invalid so destroy the pod network and return error
 	if err := c.teardownPod(id, path, config); err != nil {
-		logrus.WithError(err).Errorf("Failed to destroy network for sandbox %q", id)
+		log.G(ctx).WithError(err).Errorf("Failed to destroy network for sandbox %q", id)
 	}
 	return "", result, errors.Errorf("failed to find network info for sandbox %q", id)
 }
@@ -154,14 +157,14 @@ func hostAccessingSandbox(config *runtime.PodSandboxConfig) bool {
 	return false
 }
 
-func logDebugCNIResult(sandboxID string, result *cni.CNIResult) {
+func logDebugCNIResult(ctx context.Context, sandboxID string, result *cni.CNIResult) {
 	if logrus.GetLevel() < logrus.DebugLevel {
 		return
 	}
 	cniResult, err := json.Marshal(result)
 	if err != nil {
-		logrus.WithError(err).Errorf("Failed to marshal CNI result for sandbox %q: %v", sandboxID, err)
+		log.G(ctx).WithError(err).Errorf("Failed to marshal CNI result for sandbox %q: %v", sandboxID, err)
 		return
 	}
-	logrus.Debugf("cni result for sandbox %q: %s", sandboxID, string(cniResult))
+	log.G(ctx).Debugf("cni result for sandbox %q: %s", sandboxID, string(cniResult))
 }

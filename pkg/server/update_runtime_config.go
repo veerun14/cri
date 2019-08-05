@@ -19,14 +19,14 @@ package server
 import (
 	"os"
 	"path/filepath"
+	osruntime "runtime"
 	"text/template"
 
+	"github.com/containerd/containerd/log"
 	cni "github.com/containerd/go-cni"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
-	osruntime "runtime"
 )
 
 // cniConfigTemplate contains the values containerd will overwrite
@@ -47,7 +47,7 @@ func (c *criService) UpdateRuntimeConfig(ctx context.Context, r *runtime.UpdateR
 	}
 	confTemplate := c.config.NetworkPluginConfTemplate
 	if confTemplate == "" {
-		logrus.Info("No cni config template is specified, wait for other system components to drop the config.")
+		log.G(ctx).Info("No cni config template is specified, wait for other system components to drop the config.")
 		return &runtime.UpdateRuntimeConfigResponse{}, nil
 	}
 	var copts []cni.CNIOpt
@@ -57,13 +57,13 @@ func (c *criService) UpdateRuntimeConfig(ctx context.Context, r *runtime.UpdateR
 	copts = append(copts, cni.WithDefaultConf)
 
 	if err := c.netPlugin.Status(); err == nil {
-		logrus.Infof("Network plugin is ready, skip generating cni config from template %q", confTemplate)
+		log.G(ctx).Infof("Network plugin is ready, skip generating cni config from template %q", confTemplate)
 		return &runtime.UpdateRuntimeConfigResponse{}, nil
 	} else if err := c.netPlugin.Load(copts...); err == nil {
-		logrus.Infof("CNI config is successfully loaded, skip generating cni config from template %q", confTemplate)
+		log.G(ctx).Infof("CNI config is successfully loaded, skip generating cni config from template %q", confTemplate)
 		return &runtime.UpdateRuntimeConfigResponse{}, nil
 	}
-	logrus.Infof("Generating cni config from template %q", confTemplate)
+	log.G(ctx).Infof("Generating cni config from template %q", confTemplate)
 	// generate cni config file from the template with updated pod cidr.
 	t, err := template.ParseFiles(confTemplate)
 	if err != nil {

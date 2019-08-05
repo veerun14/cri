@@ -19,13 +19,12 @@ package server
 import (
 	"errors"
 
-	"github.com/sirupsen/logrus"
+	"github.com/containerd/containerd/log"
 	"golang.org/x/net/context"
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 
 	api "github.com/containerd/cri/pkg/api/v1"
 	ctrdutil "github.com/containerd/cri/pkg/containerd/util"
-	"github.com/containerd/cri/pkg/log"
 )
 
 // instrumentedService wraps service with containerd namespace and logs.
@@ -52,12 +51,12 @@ func (in *instrumentedService) RunPodSandbox(ctx context.Context, r *runtime.Run
 	if err := in.checkInitialized(); err != nil {
 		return nil, err
 	}
-	logrus.Infof("RunPodsandbox for %+v", r.GetConfig().GetMetadata())
+	log.G(ctx).Infof("RunPodsandbox for %+v", r.GetConfig().GetMetadata())
 	defer func() {
 		if err != nil {
-			logrus.WithError(err).Errorf("RunPodSandbox for %+v failed, error", r.GetConfig().GetMetadata())
+			log.G(ctx).WithError(err).Errorf("RunPodSandbox for %+v failed, error", r.GetConfig().GetMetadata())
 		} else {
-			logrus.Infof("RunPodSandbox for %+v returns sandbox id %q", r.GetConfig().GetMetadata(), res.GetPodSandboxId())
+			log.G(ctx).Infof("RunPodSandbox for %+v returns sandbox id %q", r.GetConfig().GetMetadata(), res.GetPodSandboxId())
 		}
 	}()
 	return in.c.RunPodSandbox(ctrdutil.WithNamespace(ctx), r)
@@ -67,12 +66,12 @@ func (in *instrumentedService) ListPodSandbox(ctx context.Context, r *runtime.Li
 	if err := in.checkInitialized(); err != nil {
 		return nil, err
 	}
-	log.Tracef("ListPodSandbox with filter %+v", r.GetFilter())
+	log.G(ctx).Tracef("ListPodSandbox with filter %+v", r.GetFilter())
 	defer func() {
 		if err != nil {
-			logrus.WithError(err).Error("ListPodSandbox failed")
+			log.G(ctx).WithError(err).Error("ListPodSandbox failed")
 		} else {
-			log.Tracef("ListPodSandbox returns pod sandboxes %+v", res.GetItems())
+			log.G(ctx).Tracef("ListPodSandbox returns pod sandboxes %+v", res.GetItems())
 		}
 	}()
 	return in.c.ListPodSandbox(ctrdutil.WithNamespace(ctx), r)
@@ -82,12 +81,12 @@ func (in *instrumentedService) PodSandboxStatus(ctx context.Context, r *runtime.
 	if err := in.checkInitialized(); err != nil {
 		return nil, err
 	}
-	log.Tracef("PodSandboxStatus for %q", r.GetPodSandboxId())
+	log.G(ctx).Tracef("PodSandboxStatus for %q", r.GetPodSandboxId())
 	defer func() {
 		if err != nil {
-			logrus.WithError(err).Errorf("PodSandboxStatus for %q failed", r.GetPodSandboxId())
+			log.G(ctx).WithError(err).Errorf("PodSandboxStatus for %q failed", r.GetPodSandboxId())
 		} else {
-			log.Tracef("PodSandboxStatus for %q returns status %+v", r.GetPodSandboxId(), res.GetStatus())
+			log.G(ctx).Tracef("PodSandboxStatus for %q returns status %+v", r.GetPodSandboxId(), res.GetStatus())
 		}
 	}()
 	return in.c.PodSandboxStatus(ctrdutil.WithNamespace(ctx), r)
@@ -97,12 +96,12 @@ func (in *instrumentedService) StopPodSandbox(ctx context.Context, r *runtime.St
 	if err := in.checkInitialized(); err != nil {
 		return nil, err
 	}
-	logrus.Infof("StopPodSandbox for %q", r.GetPodSandboxId())
+	log.G(ctx).Infof("StopPodSandbox for %q", r.GetPodSandboxId())
 	defer func() {
 		if err != nil {
-			logrus.WithError(err).Errorf("StopPodSandbox for %q failed", r.GetPodSandboxId())
+			log.G(ctx).WithError(err).Errorf("StopPodSandbox for %q failed", r.GetPodSandboxId())
 		} else {
-			logrus.Infof("StopPodSandbox for %q returns successfully", r.GetPodSandboxId())
+			log.G(ctx).Infof("StopPodSandbox for %q returns successfully", r.GetPodSandboxId())
 		}
 	}()
 	return in.c.StopPodSandbox(ctrdutil.WithNamespace(ctx), r)
@@ -112,12 +111,12 @@ func (in *instrumentedService) RemovePodSandbox(ctx context.Context, r *runtime.
 	if err := in.checkInitialized(); err != nil {
 		return nil, err
 	}
-	logrus.Infof("RemovePodSandbox for %q", r.GetPodSandboxId())
+	log.G(ctx).Infof("RemovePodSandbox for %q", r.GetPodSandboxId())
 	defer func() {
 		if err != nil {
-			logrus.WithError(err).Errorf("RemovePodSandbox for %q failed", r.GetPodSandboxId())
+			log.G(ctx).WithError(err).Errorf("RemovePodSandbox for %q failed", r.GetPodSandboxId())
 		} else {
-			logrus.Infof("RemovePodSandbox %q returns successfully", r.GetPodSandboxId())
+			log.G(ctx).Infof("RemovePodSandbox %q returns successfully", r.GetPodSandboxId())
 		}
 	}()
 	return in.c.RemovePodSandbox(ctrdutil.WithNamespace(ctx), r)
@@ -127,12 +126,12 @@ func (in *instrumentedService) PortForward(ctx context.Context, r *runtime.PortF
 	if err := in.checkInitialized(); err != nil {
 		return nil, err
 	}
-	logrus.Infof("Portforward for %q port %v", r.GetPodSandboxId(), r.GetPort())
+	log.G(ctx).Infof("Portforward for %q port %v", r.GetPodSandboxId(), r.GetPort())
 	defer func() {
 		if err != nil {
-			logrus.WithError(err).Errorf("Portforward for %q failed", r.GetPodSandboxId())
+			log.G(ctx).WithError(err).Errorf("Portforward for %q failed", r.GetPodSandboxId())
 		} else {
-			logrus.Infof("Portforward for %q returns URL %q", r.GetPodSandboxId(), res.GetUrl())
+			log.G(ctx).Infof("Portforward for %q returns URL %q", r.GetPodSandboxId(), res.GetUrl())
 		}
 	}()
 	return in.c.PortForward(ctrdutil.WithNamespace(ctx), r)
@@ -142,14 +141,14 @@ func (in *instrumentedService) CreateContainer(ctx context.Context, r *runtime.C
 	if err := in.checkInitialized(); err != nil {
 		return nil, err
 	}
-	logrus.Infof("CreateContainer within sandbox %q for container %+v",
+	log.G(ctx).Infof("CreateContainer within sandbox %q for container %+v",
 		r.GetPodSandboxId(), r.GetConfig().GetMetadata())
 	defer func() {
 		if err != nil {
-			logrus.WithError(err).Errorf("CreateContainer within sandbox %q for %+v failed",
+			log.G(ctx).WithError(err).Errorf("CreateContainer within sandbox %q for %+v failed",
 				r.GetPodSandboxId(), r.GetConfig().GetMetadata())
 		} else {
-			logrus.Infof("CreateContainer within sandbox %q for %+v returns container id %q",
+			log.G(ctx).Infof("CreateContainer within sandbox %q for %+v returns container id %q",
 				r.GetPodSandboxId(), r.GetConfig().GetMetadata(), res.GetContainerId())
 		}
 	}()
@@ -160,12 +159,12 @@ func (in *instrumentedService) StartContainer(ctx context.Context, r *runtime.St
 	if err := in.checkInitialized(); err != nil {
 		return nil, err
 	}
-	logrus.Infof("StartContainer for %q", r.GetContainerId())
+	log.G(ctx).Infof("StartContainer for %q", r.GetContainerId())
 	defer func() {
 		if err != nil {
-			logrus.WithError(err).Errorf("StartContainer for %q failed", r.GetContainerId())
+			log.G(ctx).WithError(err).Errorf("StartContainer for %q failed", r.GetContainerId())
 		} else {
-			logrus.Infof("StartContainer for %q returns successfully", r.GetContainerId())
+			log.G(ctx).Infof("StartContainer for %q returns successfully", r.GetContainerId())
 		}
 	}()
 	return in.c.StartContainer(ctrdutil.WithNamespace(ctx), r)
@@ -175,12 +174,12 @@ func (in *instrumentedService) ListContainers(ctx context.Context, r *runtime.Li
 	if err := in.checkInitialized(); err != nil {
 		return nil, err
 	}
-	log.Tracef("ListContainers with filter %+v", r.GetFilter())
+	log.G(ctx).Tracef("ListContainers with filter %+v", r.GetFilter())
 	defer func() {
 		if err != nil {
-			logrus.WithError(err).Errorf("ListContainers with filter %+v failed", r.GetFilter())
+			log.G(ctx).WithError(err).Errorf("ListContainers with filter %+v failed", r.GetFilter())
 		} else {
-			log.Tracef("ListContainers with filter %+v returns containers %+v",
+			log.G(ctx).Tracef("ListContainers with filter %+v returns containers %+v",
 				r.GetFilter(), res.GetContainers())
 		}
 	}()
@@ -191,12 +190,12 @@ func (in *instrumentedService) ContainerStatus(ctx context.Context, r *runtime.C
 	if err := in.checkInitialized(); err != nil {
 		return nil, err
 	}
-	log.Tracef("ContainerStatus for %q", r.GetContainerId())
+	log.G(ctx).Tracef("ContainerStatus for %q", r.GetContainerId())
 	defer func() {
 		if err != nil {
-			logrus.WithError(err).Errorf("ContainerStatus for %q failed", r.GetContainerId())
+			log.G(ctx).WithError(err).Errorf("ContainerStatus for %q failed", r.GetContainerId())
 		} else {
-			log.Tracef("ContainerStatus for %q returns status %+v", r.GetContainerId(), res.GetStatus())
+			log.G(ctx).Tracef("ContainerStatus for %q returns status %+v", r.GetContainerId(), res.GetStatus())
 		}
 	}()
 	return in.c.ContainerStatus(ctrdutil.WithNamespace(ctx), r)
@@ -206,12 +205,12 @@ func (in *instrumentedService) StopContainer(ctx context.Context, r *runtime.Sto
 	if err := in.checkInitialized(); err != nil {
 		return nil, err
 	}
-	logrus.Infof("StopContainer for %q with timeout %d (s)", r.GetContainerId(), r.GetTimeout())
+	log.G(ctx).Infof("StopContainer for %q with timeout %d (s)", r.GetContainerId(), r.GetTimeout())
 	defer func() {
 		if err != nil {
-			logrus.WithError(err).Errorf("StopContainer for %q failed", r.GetContainerId())
+			log.G(ctx).WithError(err).Errorf("StopContainer for %q failed", r.GetContainerId())
 		} else {
-			logrus.Infof("StopContainer for %q returns successfully", r.GetContainerId())
+			log.G(ctx).Infof("StopContainer for %q returns successfully", r.GetContainerId())
 		}
 	}()
 	return in.c.StopContainer(ctrdutil.WithNamespace(ctx), r)
@@ -221,12 +220,12 @@ func (in *instrumentedService) RemoveContainer(ctx context.Context, r *runtime.R
 	if err := in.checkInitialized(); err != nil {
 		return nil, err
 	}
-	logrus.Infof("RemoveContainer for %q", r.GetContainerId())
+	log.G(ctx).Infof("RemoveContainer for %q", r.GetContainerId())
 	defer func() {
 		if err != nil {
-			logrus.WithError(err).Errorf("RemoveContainer for %q failed", r.GetContainerId())
+			log.G(ctx).WithError(err).Errorf("RemoveContainer for %q failed", r.GetContainerId())
 		} else {
-			logrus.Infof("RemoveContainer for %q returns successfully", r.GetContainerId())
+			log.G(ctx).Infof("RemoveContainer for %q returns successfully", r.GetContainerId())
 		}
 	}()
 	return in.c.RemoveContainer(ctrdutil.WithNamespace(ctx), r)
@@ -236,13 +235,13 @@ func (in *instrumentedService) ExecSync(ctx context.Context, r *runtime.ExecSync
 	if err := in.checkInitialized(); err != nil {
 		return nil, err
 	}
-	logrus.Infof("ExecSync for %q with command %+v and timeout %d (s)", r.GetContainerId(), r.GetCmd(), r.GetTimeout())
+	log.G(ctx).Infof("ExecSync for %q with command %+v and timeout %d (s)", r.GetContainerId(), r.GetCmd(), r.GetTimeout())
 	defer func() {
 		if err != nil {
-			logrus.WithError(err).Errorf("ExecSync for %q failed", r.GetContainerId())
+			log.G(ctx).WithError(err).Errorf("ExecSync for %q failed", r.GetContainerId())
 		} else {
-			logrus.Infof("ExecSync for %q returns with exit code %d", r.GetContainerId(), res.GetExitCode())
-			logrus.Debugf("ExecSync for %q outputs - stdout: %q, stderr: %q", r.GetContainerId(),
+			log.G(ctx).Infof("ExecSync for %q returns with exit code %d", r.GetContainerId(), res.GetExitCode())
+			log.G(ctx).Debugf("ExecSync for %q outputs - stdout: %q, stderr: %q", r.GetContainerId(),
 				res.GetStdout(), res.GetStderr())
 		}
 	}()
@@ -253,13 +252,13 @@ func (in *instrumentedService) Exec(ctx context.Context, r *runtime.ExecRequest)
 	if err := in.checkInitialized(); err != nil {
 		return nil, err
 	}
-	logrus.Infof("Exec for %q with command %+v, tty %v and stdin %v",
+	log.G(ctx).Infof("Exec for %q with command %+v, tty %v and stdin %v",
 		r.GetContainerId(), r.GetCmd(), r.GetTty(), r.GetStdin())
 	defer func() {
 		if err != nil {
-			logrus.WithError(err).Errorf("Exec for %q failed", r.GetContainerId())
+			log.G(ctx).WithError(err).Errorf("Exec for %q failed", r.GetContainerId())
 		} else {
-			logrus.Infof("Exec for %q returns URL %q", r.GetContainerId(), res.GetUrl())
+			log.G(ctx).Infof("Exec for %q returns URL %q", r.GetContainerId(), res.GetUrl())
 		}
 	}()
 	return in.c.Exec(ctrdutil.WithNamespace(ctx), r)
@@ -269,12 +268,12 @@ func (in *instrumentedService) Attach(ctx context.Context, r *runtime.AttachRequ
 	if err := in.checkInitialized(); err != nil {
 		return nil, err
 	}
-	logrus.Infof("Attach for %q with tty %v and stdin %v", r.GetContainerId(), r.GetTty(), r.GetStdin())
+	log.G(ctx).Infof("Attach for %q with tty %v and stdin %v", r.GetContainerId(), r.GetTty(), r.GetStdin())
 	defer func() {
 		if err != nil {
-			logrus.WithError(err).Errorf("Attach for %q failed", r.GetContainerId())
+			log.G(ctx).WithError(err).Errorf("Attach for %q failed", r.GetContainerId())
 		} else {
-			logrus.Infof("Attach for %q returns URL %q", r.GetContainerId(), res.Url)
+			log.G(ctx).Infof("Attach for %q returns URL %q", r.GetContainerId(), res.Url)
 		}
 	}()
 	return in.c.Attach(ctrdutil.WithNamespace(ctx), r)
@@ -284,12 +283,12 @@ func (in *instrumentedService) UpdateContainerResources(ctx context.Context, r *
 	if err := in.checkInitialized(); err != nil {
 		return nil, err
 	}
-	logrus.Infof("UpdateContainerResources for %q with %+v", r.GetContainerId(), r.GetLinux())
+	log.G(ctx).Infof("UpdateContainerResources for %q with %+v", r.GetContainerId(), r.GetLinux())
 	defer func() {
 		if err != nil {
-			logrus.WithError(err).Errorf("UpdateContainerResources for %q failed", r.GetContainerId())
+			log.G(ctx).WithError(err).Errorf("UpdateContainerResources for %q failed", r.GetContainerId())
 		} else {
-			logrus.Infof("UpdateContainerResources for %q returns successfully", r.GetContainerId())
+			log.G(ctx).Infof("UpdateContainerResources for %q returns successfully", r.GetContainerId())
 		}
 	}()
 	return in.c.UpdateContainerResources(ctrdutil.WithNamespace(ctx), r)
@@ -299,12 +298,12 @@ func (in *instrumentedService) PullImage(ctx context.Context, r *runtime.PullIma
 	if err := in.checkInitialized(); err != nil {
 		return nil, err
 	}
-	logrus.Infof("PullImage %q", r.GetImage().GetImage())
+	log.G(ctx).Infof("PullImage %q", r.GetImage().GetImage())
 	defer func() {
 		if err != nil {
-			logrus.WithError(err).Errorf("PullImage %q failed", r.GetImage().GetImage())
+			log.G(ctx).WithError(err).Errorf("PullImage %q failed", r.GetImage().GetImage())
 		} else {
-			logrus.Infof("PullImage %q returns image reference %q",
+			log.G(ctx).Infof("PullImage %q returns image reference %q",
 				r.GetImage().GetImage(), res.GetImageRef())
 		}
 	}()
@@ -315,12 +314,12 @@ func (in *instrumentedService) ListImages(ctx context.Context, r *runtime.ListIm
 	if err := in.checkInitialized(); err != nil {
 		return nil, err
 	}
-	log.Tracef("ListImages with filter %+v", r.GetFilter())
+	log.G(ctx).Tracef("ListImages with filter %+v", r.GetFilter())
 	defer func() {
 		if err != nil {
-			logrus.WithError(err).Errorf("ListImages with filter %+v failed", r.GetFilter())
+			log.G(ctx).WithError(err).Errorf("ListImages with filter %+v failed", r.GetFilter())
 		} else {
-			log.Tracef("ListImages with filter %+v returns image list %+v",
+			log.G(ctx).Tracef("ListImages with filter %+v returns image list %+v",
 				r.GetFilter(), res.GetImages())
 		}
 	}()
@@ -331,12 +330,12 @@ func (in *instrumentedService) ImageStatus(ctx context.Context, r *runtime.Image
 	if err := in.checkInitialized(); err != nil {
 		return nil, err
 	}
-	log.Tracef("ImageStatus for %q", r.GetImage().GetImage())
+	log.G(ctx).Tracef("ImageStatus for %q", r.GetImage().GetImage())
 	defer func() {
 		if err != nil {
-			logrus.WithError(err).Errorf("ImageStatus for %q failed", r.GetImage().GetImage())
+			log.G(ctx).WithError(err).Errorf("ImageStatus for %q failed", r.GetImage().GetImage())
 		} else {
-			log.Tracef("ImageStatus for %q returns image status %+v",
+			log.G(ctx).Tracef("ImageStatus for %q returns image status %+v",
 				r.GetImage().GetImage(), res.GetImage())
 		}
 	}()
@@ -347,12 +346,12 @@ func (in *instrumentedService) RemoveImage(ctx context.Context, r *runtime.Remov
 	if err := in.checkInitialized(); err != nil {
 		return nil, err
 	}
-	logrus.Infof("RemoveImage %q", r.GetImage().GetImage())
+	log.G(ctx).Infof("RemoveImage %q", r.GetImage().GetImage())
 	defer func() {
 		if err != nil {
-			logrus.WithError(err).Errorf("RemoveImage %q failed", r.GetImage().GetImage())
+			log.G(ctx).WithError(err).Errorf("RemoveImage %q failed", r.GetImage().GetImage())
 		} else {
-			logrus.Infof("RemoveImage %q returns successfully", r.GetImage().GetImage())
+			log.G(ctx).Infof("RemoveImage %q returns successfully", r.GetImage().GetImage())
 		}
 	}()
 	return in.c.RemoveImage(ctrdutil.WithNamespace(ctx), r)
@@ -362,12 +361,12 @@ func (in *instrumentedService) ImageFsInfo(ctx context.Context, r *runtime.Image
 	if err := in.checkInitialized(); err != nil {
 		return nil, err
 	}
-	logrus.Debugf("ImageFsInfo")
+	log.G(ctx).Debugf("ImageFsInfo")
 	defer func() {
 		if err != nil {
-			logrus.WithError(err).Error("ImageFsInfo failed")
+			log.G(ctx).WithError(err).Error("ImageFsInfo failed")
 		} else {
-			logrus.Debugf("ImageFsInfo returns filesystem info %+v", res.ImageFilesystems)
+			log.G(ctx).Debugf("ImageFsInfo returns filesystem info %+v", res.ImageFilesystems)
 		}
 	}()
 	return in.c.ImageFsInfo(ctrdutil.WithNamespace(ctx), r)
@@ -377,12 +376,12 @@ func (in *instrumentedService) ContainerStats(ctx context.Context, r *runtime.Co
 	if err := in.checkInitialized(); err != nil {
 		return nil, err
 	}
-	logrus.Debugf("ContainerStats for %q", r.GetContainerId())
+	log.G(ctx).Debugf("ContainerStats for %q", r.GetContainerId())
 	defer func() {
 		if err != nil {
-			logrus.WithError(err).Errorf("ContainerStats for %q failed", r.GetContainerId())
+			log.G(ctx).WithError(err).Errorf("ContainerStats for %q failed", r.GetContainerId())
 		} else {
-			logrus.Debugf("ContainerStats for %q returns stats %+v", r.GetContainerId(), res.GetStats())
+			log.G(ctx).Debugf("ContainerStats for %q returns stats %+v", r.GetContainerId(), res.GetStats())
 		}
 	}()
 	return in.c.ContainerStats(ctrdutil.WithNamespace(ctx), r)
@@ -392,12 +391,12 @@ func (in *instrumentedService) ListContainerStats(ctx context.Context, r *runtim
 	if err := in.checkInitialized(); err != nil {
 		return nil, err
 	}
-	log.Tracef("ListContainerStats with filter %+v", r.GetFilter())
+	log.G(ctx).Tracef("ListContainerStats with filter %+v", r.GetFilter())
 	defer func() {
 		if err != nil {
-			logrus.WithError(err).Error("ListContainerStats failed")
+			log.G(ctx).WithError(err).Error("ListContainerStats failed")
 		} else {
-			log.Tracef("ListContainerStats returns stats %+v", res.GetStats())
+			log.G(ctx).Tracef("ListContainerStats returns stats %+v", res.GetStats())
 		}
 	}()
 	return in.c.ListContainerStats(ctrdutil.WithNamespace(ctx), r)
@@ -407,12 +406,12 @@ func (in *instrumentedService) Status(ctx context.Context, r *runtime.StatusRequ
 	if err := in.checkInitialized(); err != nil {
 		return nil, err
 	}
-	log.Tracef("Status")
+	log.G(ctx).Tracef("Status")
 	defer func() {
 		if err != nil {
-			logrus.WithError(err).Error("Status failed")
+			log.G(ctx).WithError(err).Error("Status failed")
 		} else {
-			log.Tracef("Status returns status %+v", res.GetStatus())
+			log.G(ctx).Tracef("Status returns status %+v", res.GetStatus())
 		}
 	}()
 	return in.c.Status(ctrdutil.WithNamespace(ctx), r)
@@ -422,12 +421,12 @@ func (in *instrumentedService) Version(ctx context.Context, r *runtime.VersionRe
 	if err := in.checkInitialized(); err != nil {
 		return nil, err
 	}
-	log.Tracef("Version with client side version %q", r.GetVersion())
+	log.G(ctx).Tracef("Version with client side version %q", r.GetVersion())
 	defer func() {
 		if err != nil {
-			logrus.WithError(err).Error("Version failed")
+			log.G(ctx).WithError(err).Error("Version failed")
 		} else {
-			log.Tracef("Version returns %+v", res)
+			log.G(ctx).Tracef("Version returns %+v", res)
 		}
 	}()
 	return in.c.Version(ctrdutil.WithNamespace(ctx), r)
@@ -437,12 +436,12 @@ func (in *instrumentedService) UpdateRuntimeConfig(ctx context.Context, r *runti
 	if err := in.checkInitialized(); err != nil {
 		return nil, err
 	}
-	logrus.Debugf("UpdateRuntimeConfig with config %+v", r.GetRuntimeConfig())
+	log.G(ctx).Debugf("UpdateRuntimeConfig with config %+v", r.GetRuntimeConfig())
 	defer func() {
 		if err != nil {
-			logrus.WithError(err).Error("UpdateRuntimeConfig failed")
+			log.G(ctx).WithError(err).Error("UpdateRuntimeConfig failed")
 		} else {
-			logrus.Debug("UpdateRuntimeConfig returns returns successfully")
+			log.G(ctx).Debug("UpdateRuntimeConfig returns returns successfully")
 		}
 	}()
 	return in.c.UpdateRuntimeConfig(ctrdutil.WithNamespace(ctx), r)
@@ -452,12 +451,12 @@ func (in *instrumentedService) LoadImage(ctx context.Context, r *api.LoadImageRe
 	if err := in.checkInitialized(); err != nil {
 		return nil, err
 	}
-	logrus.Debugf("LoadImage from file %q", r.GetFilePath())
+	log.G(ctx).Debugf("LoadImage from file %q", r.GetFilePath())
 	defer func() {
 		if err != nil {
-			logrus.WithError(err).Error("LoadImage failed")
+			log.G(ctx).WithError(err).Error("LoadImage failed")
 		} else {
-			logrus.Debugf("LoadImage returns images %+v", res.GetImages())
+			log.G(ctx).Debugf("LoadImage returns images %+v", res.GetImages())
 		}
 	}()
 	return in.c.LoadImage(ctrdutil.WithNamespace(ctx), r)
@@ -467,12 +466,12 @@ func (in *instrumentedService) ReopenContainerLog(ctx context.Context, r *runtim
 	if err := in.checkInitialized(); err != nil {
 		return nil, err
 	}
-	logrus.Debugf("ReopenContainerLog for %q", r.GetContainerId())
+	log.G(ctx).Debugf("ReopenContainerLog for %q", r.GetContainerId())
 	defer func() {
 		if err != nil {
-			logrus.WithError(err).Errorf("ReopenContainerLog for %q failed", r.GetContainerId())
+			log.G(ctx).WithError(err).Errorf("ReopenContainerLog for %q failed", r.GetContainerId())
 		} else {
-			logrus.Debugf("ReopenContainerLog for %q returns successfully", r.GetContainerId())
+			log.G(ctx).Debugf("ReopenContainerLog for %q returns successfully", r.GetContainerId())
 		}
 	}()
 	return in.c.ReopenContainerLog(ctrdutil.WithNamespace(ctx), r)
