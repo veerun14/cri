@@ -114,7 +114,13 @@ func setOCINamespaces(g *generator, namespaces *runtime.NamespaceOption, sandbox
 	}
 }
 
-// generateUserString generates valid user string based on OCI Image Spec v1.0.0.
+// generateUserString generates valid user string based on OCI Image Spec
+// v1.0.0.
+//
+// CRI defines that the following combinations are valid:
+//
+// uid, uid/gid, username, username/gid
+//
 // TODO(random-liu): Add group name support in CRI.
 func generateUserString(username string, uid, gid *runtime.Int64Value) (string, error) {
 	var userstr, groupstr string

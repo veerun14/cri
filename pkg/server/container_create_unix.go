@@ -220,6 +220,11 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate user string")
 	}
+	if userstr == "" {
+		// Lastly, since no user override was passed via CRI try to set via OCI
+		// Image
+		userstr = image.ImageSpec.Config.User
+	}
 	if userstr != "" {
 		specOpts = append(specOpts, oci.WithUser(userstr))
 	}
