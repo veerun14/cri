@@ -370,6 +370,11 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to generate user string")
 		}
+		if userstr == "" {
+			// Lastly, since no user override was passed via CRI try to set via
+			// OCI Image
+			userstr = imageConfig.User
+		}
 		if userstr != "" {
 			g.AddAnnotation("io.microsoft.lcow.userstr", userstr)
 		}

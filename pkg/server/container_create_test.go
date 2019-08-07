@@ -1058,3 +1058,78 @@ func TestDisableCgroup(t *testing.T) {
 	t.Log("cgroup path should be empty")
 	assert.Empty(t, spec.Linux.CgroupsPath)
 }
+
+func Test_generateUserString(t *testing.T) {
+	type testcase struct {
+		// the name of the test case
+		name string
+
+		u        string
+		uid, gid *runtime.Int64Value
+
+		result        string
+		expectedError bool
+	}
+	testcases := []testcase{
+		{
+			name:   "Empty",
+			result: "",
+		},
+		{
+			name:   "Username Only",
+			u:      "testuser",
+			result: "testuser",
+		},
+		{
+			name:   "Username, UID",
+			u:      "testuser",
+			uid:    &runtime.Int64Value{Value: 1},
+			result: "testuser",
+		},
+		{
+			name:   "Username, UID, GID",
+			u:      "testuser",
+			uid:    &runtime.Int64Value{Value: 1},
+			gid:    &runtime.Int64Value{Value: 10},
+			result: "testuser:10",
+		},
+		{
+			name:   "Username, GID",
+			u:      "testuser",
+			gid:    &runtime.Int64Value{Value: 10},
+			result: "testuser:10",
+		},
+		{
+			name:   "UID only",
+			uid:    &runtime.Int64Value{Value: 1},
+			result: "1",
+		},
+		{
+			name:   "UID, GID",
+			uid:    &runtime.Int64Value{Value: 1},
+			gid:    &runtime.Int64Value{Value: 10},
+			result: "1:10",
+		},
+		{
+			name:          "GID only",
+			gid:           &runtime.Int64Value{Value: 10},
+			result:        "",
+			expectedError: true,
+		},
+	}
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			r, err := generateUserString(tc.u, tc.uid, tc.gid)
+			if err != nil {
+				if !tc.expectedError {
+					t.Fatalf("error not expected, got: %v", err)
+				}
+			} else if tc.expectedError {
+				t.Fatal("expected error, got nil")
+			}
+			if r != tc.result {
+				t.Fatalf("expected: '%s', got: '%s'", tc.result, r)
+			}
+		})
+	}
+}
