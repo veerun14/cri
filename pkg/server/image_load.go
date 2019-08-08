@@ -20,8 +20,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/containerd/containerd/log"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 
 	api "github.com/containerd/cri/pkg/api/v1"
@@ -50,7 +50,7 @@ func (c *criService) LoadImage(ctx context.Context, r *api.LoadImageRequest) (*a
 		if err := c.updateImage(ctx, repoTag); err != nil {
 			return nil, errors.Wrapf(err, "update image store %q", repoTag)
 		}
-		logrus.Debugf("Imported image %q", repoTag)
+		log.G(ctx).Debugf("Imported image %q", repoTag)
 	}
 	return &api.LoadImageResponse{Images: repoTags}, nil
 }

@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"context"
 	"crypto/tls"
 	"io"
 	"math"
@@ -147,7 +148,7 @@ func (s *streamRuntime) PortForward(podSandboxID string, port int32, stream io.R
 	if port <= 0 || port > math.MaxUint16 {
 		return errors.Errorf("invalid port %d", port)
 	}
-	return s.c.portForward(podSandboxID, port, stream)
+	return s.c.portForward(context.Background(), podSandboxID, port, stream)
 }
 
 // handleResizing spawns a goroutine that processes the resize channel, calling resizeFunc for each

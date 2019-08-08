@@ -20,12 +20,13 @@ import (
 	"strconv"
 	"strings"
 
-	containerstore "github.com/containerd/cri/pkg/store/container"
 	"github.com/containerd/typeurl"
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
 	runtimespec "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
+
+	containerstore "github.com/containerd/cri/pkg/store/container"
 )
 
 func init() {

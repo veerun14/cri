@@ -19,12 +19,15 @@ limitations under the License.
 package server
 
 import (
-	sandboxstore "github.com/containerd/cri/pkg/store/sandbox"
+	"context"
+
+	"github.com/containerd/containerd/log"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
+
+	sandboxstore "github.com/containerd/cri/pkg/store/sandbox"
 )
 
-func (c *criService) doStopPodSandbox(id string, sandbox sandboxstore.Sandbox) error {
+func (c *criService) doStopPodSandbox(ctx context.Context, id string, sandbox sandboxstore.Sandbox) error {
 	// Teardown network for sandbox.
 	if sandbox.NetNS != nil {
 		netNSPath := sandbox.NetNSPath
@@ -43,7 +46,7 @@ func (c *criService) doStopPodSandbox(id string, sandbox sandboxstore.Sandbox) e
 		}
 	}
 
-	logrus.Infof("TearDown network for sandbox %q successfully", id)
+	log.G(ctx).Infof("TearDown network for sandbox %q successfully", id)
 
 	return nil
 }

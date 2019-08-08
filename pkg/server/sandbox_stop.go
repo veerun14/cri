@@ -69,7 +69,7 @@ func (c *criService) StopPodSandbox(ctx context.Context, r *runtime.StopPodSandb
 		}
 	}
 
-	if err := c.doStopPodSandbox(id, sandbox); err != nil {
+	if err := c.doStopPodSandbox(ctx, id, sandbox); err != nil {
 		return nil, err
 	}
 

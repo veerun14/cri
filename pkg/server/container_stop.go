@@ -22,9 +22,9 @@ import (
 
 	eventtypes "github.com/containerd/containerd/api/events"
 	"github.com/containerd/containerd/errdefs"
+	"github.com/containerd/containerd/log"
 	"github.com/docker/docker/pkg/signal"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 
@@ -64,7 +64,7 @@ func (c *criService) stopContainer(ctx context.Context, container containerstore
 	state := container.Status.Get().State()
 	if state != runtime.ContainerState_CONTAINER_RUNNING &&
 		state != runtime.ContainerState_CONTAINER_UNKNOWN {
-		logrus.Infof("Container to stop %q must be in running or unknown state, current state %q",
+		log.G(ctx).Infof("Container to stop %q must be in running or unknown state, current state %q",
 			id, criContainerStateToString(state))
 		return nil
 	}
@@ -125,7 +125,7 @@ func (c *criService) stopContainer(ctx context.Context, container containerstore
 				if err != store.ErrNotExist {
 					return errors.Wrapf(err, "failed to get image %q", container.ImageRef)
 				}
-				logrus.Warningf("Image %q not found, stop container with signal %q", container.ImageRef, stopSignal)
+				log.G(ctx).Warningf("Image %q not found, stop container with signal %q", container.ImageRef, stopSignal)
 			} else {
 				if image.ImageSpec.Config.StopSignal != "" {
 					stopSignal = image.ImageSpec.Config.StopSignal
@@ -136,7 +136,7 @@ func (c *criService) stopContainer(ctx context.Context, container containerstore
 		if err != nil {
 			return errors.Wrapf(err, "failed to parse stop signal %q", stopSignal)
 		}
-		logrus.Infof("Stop container %q with signal %v", id, sig)
+		log.G(ctx).Infof("Stop container %q with signal %v", id, sig)
 		if err = task.Kill(ctx, sig); err != nil && !errdefs.IsNotFound(err) {
 			return errors.Wrapf(err, "failed to stop container %q", id)
 		}
@@ -144,10 +144,10 @@ func (c *criService) stopContainer(ctx context.Context, container containerstore
 		if err = c.waitContainerStop(ctx, container, timeout); err == nil {
 			return nil
 		}
-		logrus.WithError(err).Errorf("An error occurs during waiting for container %q to be stopped", id)
+		log.G(ctx).WithError(err).Errorf("An error occurs during waiting for container %q to be stopped", id)
 	}
 
-	logrus.Infof("Kill container %q", id)
+	log.G(ctx).Infof("Kill container %q", id)
 	if err = task.Kill(ctx, syscall.SIGKILL); err != nil && !errdefs.IsNotFound(err) {
 		return errors.Wrapf(err, "failed to kill container %q", id)
 	}
