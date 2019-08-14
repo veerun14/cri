@@ -26,6 +26,7 @@ import (
 	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/log"
 	"github.com/containerd/containerd/oci"
+	"github.com/containerd/containerd/snapshots"
 	"github.com/davecgh/go-spew/spew"
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
 	runtimespec "github.com/opencontainers/runtime-spec/specs-go"
@@ -165,11 +166,12 @@ func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandbox
 	log.G(ctx).Debugf("Sandbox container %q spec: %#+v", id, spew.NewFormatter(spec))
 
 	sandboxLabels := buildLabels(config.Labels, containerKindSandbox)
+	snapshotterOpt := snapshots.WithLabels(config.Annotations)
 
 	opts := []containerd.NewContainerOpts{
 		containerd.WithImage(image.Image),
 		containerd.WithSnapshotter(c.getDefaultSnapshotterForPlatform(sandboxPlatform)),
-		customopts.WithNewSnapshot(id, image.Image),
+		customopts.WithNewSnapshot(id, image.Image, snapshotterOpt),
 		containerd.WithContainerLabels(sandboxLabels),
 		containerd.WithContainerExtension(sandboxMetadataExtension, &sandbox.Metadata),
 		containerd.WithSpec(spec),
