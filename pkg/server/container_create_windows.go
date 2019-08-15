@@ -19,7 +19,7 @@ limitations under the License.
 package server
 
 import (
-	"os"
+	"fmt"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -324,7 +324,7 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 				return nil, errors.Errorf(`pipe mount.HostPath '%s' not supported for LCOW`, formattedSource)
 			}
 		} else {
-			s, err := os.Stat(formattedSource)
+			s, err := c.os.Stat(formattedSource)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to Stat mount.HostPath '%s'", formattedSource)
 			}
@@ -332,7 +332,21 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 				ext := strings.ToLower(filepath.Ext(formattedSource))
 				if ext == ".vhd" || ext == ".vhdx" {
 					mo.Type = "virtual-disk"
-					mo.Options = append(mo.Options, "bind")
+				}
+			} else {
+				// TODO: JTERRY75 - This is a hack and needs to be removed. The
+				// orchestrator should be controlling the entry host path.
+				if formattedDestination == "/tmp" && c.config.PluginConfig.TmpTemplateVhdPath != "" {
+					// We special case this scenario. In this case the user is
+					// requesting a /tmp destination with a folder target on the
+					// host. We copy the cache vhd and and map it as a vhd
+					// mount.
+					formattedSource = filepath.Join(formattedSource, fmt.Sprintf("%s-%s.tmp.vhdx", sandboxID, id))
+					if err := c.os.CopyFile(c.config.PluginConfig.TmpTemplateVhdPath, formattedSource, 0); err != nil {
+						return nil, errors.Wrapf(err, "failed to copy cache /tmp vhdx from %q to %q", c.config.PluginConfig.TmpTemplateVhdPath, formattedSource)
+					}
+					mo.Source = formattedSource
+					mo.Type = "virtual-disk"
 				}
 			}
 			if sandboxPlatform == "linux/amd64" {
