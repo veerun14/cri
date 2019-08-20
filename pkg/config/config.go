@@ -151,11 +151,12 @@ type PluginConfig struct {
 	// current OOMScoreADj.
 	// This is useful when the containerd does not have permission to decrease OOMScoreAdj.
 	RestrictOOMScoreAdj bool `toml:"restrict_oom_score_adj" json:"restrictOOMScoreAdj"`
-	// TmpTemplateVhdPath is the path on disk to find the source (template) vhdx to
-	// copy when a user specifies a /tmp override with a source directory.
+	// AutoManageVHDTemplatePath is the path on disk to find the source
+	// (template) vhd to copy when a user specifies a mount with a `HostPath:
+	// "automanage-vhd://"` prefix where the `HostPath` is a directory.
 	//
 	// NOTE: JTERRY75 - This is a hack! DO not submit as the final solution.
-	TmpTemplateVhdPath string `toml:"tmp_template_vhd_path" json:"tmpTemplateVhdPath"`
+	AutoManageVHDTemplatePath string `toml:"auto_manage_vhd_template_path" json:"autoManageVHDTemplatePath"`
 }
 
 // X509KeyPairStreaming contains the x509 configuration for streaming
