@@ -69,9 +69,12 @@ func (n *NetNS) Remove() error {
 		if err == nil {
 			hcnNamespace.Delete()
 			n.closed = true
+		} else if hcn.IsNotFoundError(err) {
+			// We treat as a success if the namespace is not found
+			n.closed = true
+		} else {
+			return errors.Wrap(err, "failed while attempting to get namespace")
 		}
-		// ToDo: Check for NotFound error & return nil
-		// return failure on every other error
 	}
 	if n.restored {
 		n.restored = false
