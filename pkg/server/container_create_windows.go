@@ -290,13 +290,8 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 	g.AddAnnotation(annotations.SandboxID, sandboxID)
 
 	// Add OCI Mounts
+	automanageVhdIndex := 0
 	for _, m := range config.GetMounts() {
-
-		//normalize the format of the host and container path
-		formattedSource, err := filepath.EvalSymlinks(strings.Replace(m.HostPath, "/", "\\", -1))
-		if err != nil {
-			return nil, err
-		}
 		var formattedDestination string
 		if sandboxPlatform == "linux/amd64" {
 			formattedDestination = strings.Replace(m.ContainerPath, "\\", "/", -1)
@@ -309,21 +304,64 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 		}
 
 		mo := runtimespec.Mount{
-			Source:      formattedSource,
+			Source:      m.HostPath,
 			Destination: formattedDestination,
 			Options:     []string{"ro"},
 		}
 		if !m.Readonly {
 			mo.Options[0] = "rw"
 		}
-		if strings.HasPrefix(formattedSource, `\\.\PHYSICALDRIVE`) {
+		if strings.HasPrefix(mo.Source, `\\.\PHYSICALDRIVE`) {
 			mo.Type = "physical-disk"
-		} else if strings.HasPrefix(formattedSource, `\\.\pipe`) {
+			if sandboxPlatform == "linux/amd64" {
+				mo.Options = append(mo.Options, "bind")
+			}
+		} else if strings.HasPrefix(mo.Source, `\\.\pipe`) {
 			// mo.Type == "" for pipe but we don't want to Stat the path.
 			if sandboxPlatform == "linux/amd64" {
-				return nil, errors.Errorf(`pipe mount.HostPath '%s' not supported for LCOW`, formattedSource)
+				return nil, errors.Errorf(`pipe mount.HostPath '%s' not supported for LCOW`, mo.Source)
+			}
+		} else if strings.HasPrefix(mo.Source, "automanage-vhd://") {
+			formattedSource, err := filepath.EvalSymlinks(strings.TrimPrefix(mo.Source, "automanage-vhd://"))
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to EvalSymlinks automanage-vhd:// mount.HostPath %q", mo.Source)
+			}
+			s, err := c.os.Stat(formattedSource)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to Stat automanage-vhd:// mount.HostPath %q", formattedSource)
+			}
+			if s.IsDir() {
+				// TODO: JTERRY75 - This is a hack and needs to be removed. The
+				// orchestrator should be controlling the entry host path. For
+				// now if its a directory copy the template vhd and update the
+				// source.
+				if c.config.PluginConfig.AutoManageVHDTemplatePath == "" {
+					return nil, errors.New("automange-vhd:// prefix is not supported with no 'AutoManageVHDTemplatePath' in config")
+				}
+				formattedSource = filepath.Join(formattedSource, fmt.Sprintf("%s-%s.%d.vhdx", sandboxID, id, automanageVhdIndex))
+				if err := c.os.CopyFile(c.config.PluginConfig.AutoManageVHDTemplatePath, formattedSource, 0); err != nil {
+					return nil, errors.Wrapf(err, "failed to copy automanage-vhd:// from %q to %q", c.config.PluginConfig.AutoManageVHDTemplatePath, formattedSource)
+				}
+				// increment our automanage index so source generated paths
+				// don't collide.
+				automanageVhdIndex++
+			} else {
+				ext := strings.ToLower(filepath.Ext(formattedSource))
+				if ext != ".vhd" && ext != ".vhdx" {
+					return nil, errors.Errorf("automanage-vhd:// prefix MUST have .vhd or .vhdx extension found: %q", ext)
+				}
+			}
+			mo.Source = formattedSource
+			mo.Type = "automanage-virtual-disk"
+			if sandboxPlatform == "linux/amd64" {
+				mo.Options = append(mo.Options, "bind")
 			}
 		} else {
+			//normalize the format of the host path
+			formattedSource, err := filepath.EvalSymlinks(strings.Replace(m.HostPath, "/", "\\", -1))
+			if err != nil {
+				return nil, err
+			}
 			s, err := c.os.Stat(formattedSource)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to Stat mount.HostPath '%s'", formattedSource)
@@ -333,36 +371,19 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 				if ext == ".vhd" || ext == ".vhdx" {
 					mo.Type = "virtual-disk"
 				}
-			} else {
-				// TODO: JTERRY75 - This is a hack and needs to be removed. The
-				// orchestrator should be controlling the entry host path.
-				if formattedDestination == "/tmp" && c.config.PluginConfig.TmpTemplateVhdPath != "" {
-					// We special case this scenario. In this case the user is
-					// requesting a /tmp destination with a folder target on the
-					// host. We copy the cache vhd and and map it as a vhd
-					// mount.
-					formattedSource = filepath.Join(formattedSource, fmt.Sprintf("%s-%s.tmp.vhdx", sandboxID, id))
-					if err := c.os.CopyFile(c.config.PluginConfig.TmpTemplateVhdPath, formattedSource, 0); err != nil {
-						return nil, errors.Wrapf(err, "failed to copy cache /tmp vhdx from %q to %q", c.config.PluginConfig.TmpTemplateVhdPath, formattedSource)
-					}
-					mo.Source = formattedSource
-					mo.Type = "virtual-disk"
-				}
 			}
+			mo.Source = formattedSource
 			if sandboxPlatform == "linux/amd64" {
 				switch mo.Type {
 				case "":
 					// Linux requires a folder/file to be bind mount.
 					mo.Type = "bind"
 					mo.Options = append(mo.Options, "rbind")
-				case "virtual-disk", "physical-disk":
+				case "virtual-disk":
 					mo.Options = append(mo.Options, "bind")
-
 				}
 			}
 		}
-
-		// TODO: JTERRY75 - Mount Propagation for LCOW?
 
 		g.AddMount(mo)
 	}
