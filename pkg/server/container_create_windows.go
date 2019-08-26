@@ -321,6 +321,11 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 			if sandboxPlatform == "linux/amd64" {
 				return nil, errors.Errorf(`pipe mount.HostPath '%s' not supported for LCOW`, mo.Source)
 			}
+		} else if strings.HasPrefix(mo.Source, "sandbox://") {
+			// mount source prefix sandbox:// is only supported wit lcow
+			if sandboxPlatform != "linux/amd64" {
+				return nil, errors.Errorf(`sandbox://' mounts are only supported for LCOW`, mo.Source)
+			}		
 		} else if strings.HasPrefix(mo.Source, "automanage-vhd://") {
 			formattedSource, err := filepath.EvalSymlinks(strings.TrimPrefix(mo.Source, "automanage-vhd://"))
 			if err != nil {
