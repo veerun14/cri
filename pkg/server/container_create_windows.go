@@ -322,7 +322,7 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 				return nil, errors.Errorf(`pipe mount.HostPath '%s' not supported for LCOW`, mo.Source)
 			}
 		} else if strings.HasPrefix(mo.Source, "sandbox://") {
-			// mount source prefix sandbox:// is only supported wit lcow
+			// mount source prefix sandbox:// is only supported with lcow
 			if sandboxPlatform != "linux/amd64" {
 				return nil, errors.Errorf(`sandbox://' mounts are only supported for LCOW`, mo.Source)
 			}
@@ -364,32 +364,42 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 			if sandboxPlatform == "linux/amd64" {
 				mo.Options = append(mo.Options, "bind")
 			}
+		} else if strings.HasPrefix(mo.Source, "vhd://") {
+			formattedSource, err := filepath.EvalSymlinks(strings.TrimPrefix(mo.Source, "vhd://"))
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to EvalSymlinks vhd:// mount.HostPath %q", mo.Source)
+			}
+			s, err := c.os.Stat(formattedSource)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to Stat vhd:// mount.HostPath %q", formattedSource)
+			}
+			if s.IsDir() {
+				return nil, errors.New("vhd:// prefix is only supported on file paths")
+			}
+			ext := strings.ToLower(filepath.Ext(formattedSource))
+			if ext != ".vhd" && ext != ".vhdx" {
+				return nil, errors.New("vhd:// prefix is only supported on file paths ending in .vhd or .vhdx")
+			}
+			mo.Source = formattedSource
+			mo.Type = "virtual-disk"
+			if sandboxPlatform == "linux/amd64" {
+				mo.Options = append(mo.Options, "bind")
+			}
 		} else {
 			//normalize the format of the host path
 			formattedSource, err := filepath.EvalSymlinks(strings.Replace(m.HostPath, "/", "\\", -1))
 			if err != nil {
 				return nil, err
 			}
-			s, err := c.os.Stat(formattedSource)
+			_, err = c.os.Stat(formattedSource)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to Stat mount.HostPath '%s'", formattedSource)
 			}
-			if !s.IsDir() {
-				ext := strings.ToLower(filepath.Ext(formattedSource))
-				if ext == ".vhd" || ext == ".vhdx" {
-					mo.Type = "virtual-disk"
-				}
-			}
 			mo.Source = formattedSource
 			if sandboxPlatform == "linux/amd64" {
-				switch mo.Type {
-				case "":
-					// Linux requires a folder/file to be bind mount.
-					mo.Type = "bind"
-					mo.Options = append(mo.Options, "rbind")
-				case "virtual-disk":
-					mo.Options = append(mo.Options, "bind")
-				}
+				// Linux requires a folder/file to be bind mount.
+				mo.Type = "bind"
+				mo.Options = append(mo.Options, "rbind")
 			}
 		}
 
