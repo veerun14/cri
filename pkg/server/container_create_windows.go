@@ -30,6 +30,7 @@ import (
 	"github.com/containerd/containerd/containers"
 	"github.com/containerd/containerd/log"
 	"github.com/containerd/containerd/oci"
+	"github.com/containerd/containerd/snapshots"
 	"github.com/davecgh/go-spew/spew"
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
 	runtimespec "github.com/opencontainers/runtime-spec/specs-go"
@@ -159,10 +160,12 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 
 	log.G(ctx).Debugf("Container %q spec: %#+v", id, spew.NewFormatter(spec))
 
+	snapshotterOpt := snapshots.WithLabels(config.Annotations)
+
 	// Set snapshotter before any other options.
 	opts := []containerd.NewContainerOpts{
 		containerd.WithSnapshotter(c.getDefaultSnapshotterForPlatform(sandboxPlatform)),
-		customopts.WithNewSnapshot(id, image.Image),
+		customopts.WithNewSnapshot(id, image.Image, snapshotterOpt),
 	}
 
 	meta.ImageRef = image.ID
