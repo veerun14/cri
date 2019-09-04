@@ -18,6 +18,7 @@ package server
 
 import (
 	"encoding/base64"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -32,6 +33,7 @@ import (
 	distribution "github.com/docker/distribution/reference"
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 )
@@ -272,13 +274,55 @@ func (c *criService) getResolver(ctx context.Context, ref string, cred func(stri
 		}
 		// Continue to try next endpoint
 	}
+	client := &http.Client{
+		CheckRedirect: checkRedirecter(ctx),
+	}
 	resolver := docker.NewResolver(docker.ResolverOptions{
 		Credentials: cred,
-		Client:      http.DefaultClient,
+		Client:      client,
 	})
 	_, desc, err := resolver.Resolve(ctx, ref)
 	if err != nil {
 		return nil, imagespec.Descriptor{}, errors.Wrap(err, "no available registry endpoint")
 	}
 	return resolver, desc, nil
+}
+
+// TODO: JTERRY75 set these by using the containerd/containerd/remotes/docker
+// resolver and add an opt to set the ClientRedirect.
+func checkRedirecter(ctx context.Context) func(*http.Request, []*http.Request) error {
+	return func(req *http.Request, via []*http.Request) error {
+		if len(via) >= 10 {
+			return errors.New("stopped after 10 redirects")
+		}
+		log.G(ctx).WithFields(requestFields(req)).Debug("do request redirect")
+		for i, v := range via {
+			log.G(ctx).WithFields(requestFields(v)).Debugf("do request redirect via %d", i)
+		}
+		return nil
+	}
+}
+
+func requestFields(req *http.Request) logrus.Fields {
+	fields := map[string]interface{}{
+		"request.method": req.Method,
+	}
+	if req.URL != nil {
+		fields["url"] = req.URL.String()
+	}
+	for k, vals := range req.Header {
+		k = strings.ToLower(k)
+		if k == "authorization" {
+			continue
+		}
+		for i, v := range vals {
+			field := "request.header." + k
+			if i > 0 {
+				field = fmt.Sprintf("%s.%d", field, i)
+			}
+			fields[field] = v
+		}
+	}
+
+	return logrus.Fields(fields)
 }
