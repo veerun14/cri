@@ -438,6 +438,11 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 			g.AddProcessAdditionalGid(uint32(group))
 		}
 		setOCINamespaces(&g, securityContext.GetNamespaceOptions(), sandboxPid)
+	} else {
+		username := config.GetWindows().GetSecurityContext().GetRunAsUsername()
+		if username != "" {
+			g.SetProcessUsername(username)
+		}
 	}
 
 	return g.Config, nil
