@@ -19,8 +19,11 @@ limitations under the License.
 package server
 
 import (
+	runhcsstats "github.com/Microsoft/hcsshim/cmd/containerd-shim-runhcs-v1/stats"
 	"github.com/containerd/containerd/api/types"
 	containerstore "github.com/containerd/cri/pkg/store/container"
+	sandboxstore "github.com/containerd/cri/pkg/store/sandbox"
+	"github.com/containerd/typeurl"
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 )
 
@@ -55,4 +58,37 @@ func (c *criService) getContainerMetrics(
 	// TODO: JTERRY75 process stats for Windows
 
 	return &cs, nil
+}
+
+func (c *criService) getSandboxMetrics(
+	meta sandboxstore.Metadata,
+	stats *types.Metric,
+) (*runtime.ContainerStats, error) {
+	configMeta := meta.Config.GetMetadata()
+	cs := &runtime.ContainerStats{
+		Attributes: &runtime.ContainerAttributes{
+			Id: meta.ID,
+			Metadata: &runtime.ContainerMetadata{
+				Name:    configMeta.Name,
+				Attempt: configMeta.Attempt,
+			},
+			Labels:      meta.Config.GetLabels(),
+			Annotations: meta.Config.GetAnnotations(),
+		},
+	}
+	v, err := typeurl.UnmarshalAny(stats.Data)
+	if err != nil {
+		return nil, err
+	}
+	if s, ok := v.(*runhcsstats.Statistics); ok {
+		cs.Cpu = &runtime.CpuUsage{
+			Timestamp:            stats.Timestamp.UnixNano(),
+			UsageCoreNanoSeconds: &runtime.UInt64Value{s.VM.Processor.TotalRuntimeNS},
+		}
+		cs.Memory = &runtime.MemoryUsage{
+			Timestamp:       stats.Timestamp.UnixNano(),
+			WorkingSetBytes: &runtime.UInt64Value{s.VM.Memory.WorkingSetBytes},
+		}
+	}
+	return cs, nil
 }

@@ -18,6 +18,9 @@ package server
 
 import (
 	tasks "github.com/containerd/containerd/api/services/tasks/v1"
+	"github.com/containerd/cri/pkg/store"
+	"github.com/containerd/cri/pkg/store/container"
+	"github.com/containerd/cri/pkg/store/sandbox"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
@@ -26,11 +29,22 @@ import (
 // ContainerStats returns stats of the container. If the container does not
 // exist, the call returns an error.
 func (c *criService) ContainerStats(ctx context.Context, in *runtime.ContainerStatsRequest) (*runtime.ContainerStatsResponse, error) {
+	var cntr container.Container
+	var sndbx sandbox.Sandbox
+	var id string
 	cntr, err := c.containerStore.Get(in.GetContainerId())
-	if err != nil {
+	if err == nil {
+		id = cntr.ID
+	} else if err == store.ErrNotExist {
+		sndbx, err = c.sandboxStore.Get(in.GetContainerId())
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to find container or sandbox")
+		}
+		id = sndbx.ID
+	} else if err != nil {
 		return nil, errors.Wrap(err, "failed to find container")
 	}
-	request := &tasks.MetricsRequest{Filters: []string{"id==" + cntr.ID}}
+	request := &tasks.MetricsRequest{Filters: []string{"id==" + id}}
 	resp, err := c.client.TaskService().Metrics(ctx, request)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to fetch metrics for task")
@@ -39,9 +53,18 @@ func (c *criService) ContainerStats(ctx context.Context, in *runtime.ContainerSt
 		return nil, errors.Errorf("unexpected metrics response: %+v", resp.Metrics)
 	}
 
-	cs, err := c.getContainerMetrics(cntr.Metadata, resp.Metrics[0])
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to decode container metrics")
+	var cs *runtime.ContainerStats
+	if cntr != (container.Container{}) {
+		cs, err = c.getContainerMetrics(cntr.Metadata, resp.Metrics[0])
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to decode container metrics")
+		}
+	} else if sndbx != (sandbox.Sandbox{}) {
+		cs, err = c.getSandboxMetrics(sndbx.Metadata, resp.Metrics[0])
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to decode sandbox metrics")
+		}
 	}
+
 	return &runtime.ContainerStatsResponse{Stats: cs}, nil
 }
