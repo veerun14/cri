@@ -1,3 +1,5 @@
+// +build linux
+
 /*
    Copyright The containerd Authors.
 
@@ -14,18 +16,29 @@
    limitations under the License.
 */
 
-package namespaces
+package v1
 
-import (
-	"github.com/containerd/containerd/namespaces"
-	"github.com/containerd/containerd/runtime/opts"
-	"github.com/urfave/cli"
+import "github.com/containerd/cgroups"
+
+type (
+	// Metrics alias
+	Metrics = cgroups.Metrics
+	// BlkIOEntry alias
+	BlkIOEntry = cgroups.BlkIOEntry
+	// MemoryStat alias
+	MemoryStat = cgroups.MemoryStat
+	// CPUStat alias
+	CPUStat = cgroups.CPUStat
+	// CPUUsage alias
+	CPUUsage = cgroups.CPUUsage
+	// BlkIOStat alias
+	BlkIOStat = cgroups.BlkIOStat
+	// PidsStat alias
+	PidsStat = cgroups.PidsStat
+	// RdmaStat alias
+	RdmaStat = cgroups.RdmaStat
+	// RdmaEntry alias
+	RdmaEntry = cgroups.RdmaEntry
+	// HugetlbStat alias
+	HugetlbStat = cgroups.HugetlbStat
 )
-
-func deleteOpts(context *cli.Context) []namespaces.DeleteOpts {
-	var delOpts []namespaces.DeleteOpts
-	if context.Bool("cgroup") {
-		delOpts = append(delOpts, opts.WithNamespaceCgroupDeletion)
-	}
-	return delOpts
-}

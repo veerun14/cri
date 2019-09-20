@@ -1,3 +1,5 @@
+// +build !linux
+
 /*
    Copyright The containerd Authors.
 
@@ -14,18 +16,11 @@
    limitations under the License.
 */
 
-package namespaces
+package seccomp
 
-import (
-	"github.com/containerd/containerd/namespaces"
-	"github.com/containerd/containerd/runtime/opts"
-	"github.com/urfave/cli"
-)
+import specs "github.com/opencontainers/runtime-spec/specs-go"
 
-func deleteOpts(context *cli.Context) []namespaces.DeleteOpts {
-	var delOpts []namespaces.DeleteOpts
-	if context.Bool("cgroup") {
-		delOpts = append(delOpts, opts.WithNamespaceCgroupDeletion)
-	}
-	return delOpts
+// DefaultProfile defines the whitelist for the default seccomp profile.
+func DefaultProfile(sp *specs.Spec) *specs.LinuxSeccomp {
+	return &specs.LinuxSeccomp{}
 }
