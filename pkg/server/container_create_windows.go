@@ -316,6 +316,21 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 		var options []string
 		if sandboxPlatform == "linux/amd64" {
 			options = append(options, "rbind")
+			switch m.GetPropagation() {
+			case runtime.MountPropagation_PROPAGATION_PRIVATE:
+				options = append(options, "rprivate")
+			case runtime.MountPropagation_PROPAGATION_BIDIRECTIONAL:
+				options = append(options, "rshared")
+				g.SetLinuxRootPropagation("rshared")
+			case runtime.MountPropagation_PROPAGATION_HOST_TO_CONTAINER:
+				options = append(options, "rslave")
+				if g.Config.Linux.RootfsPropagation != "rshared" {
+					g.SetLinuxRootPropagation("rslave")
+				}
+			default:
+				log.G(ctx).Warnf("Unknown propagation mode %v for hostPath %q, defaulting to rprivate", m.GetPropagation(), src)
+				options = append(options, "rprivate")
+			}
 		}
 
 		if m.GetReadonly() {
