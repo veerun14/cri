@@ -284,6 +284,11 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 	// Set the Network Namespace
 	g.SetWindowsNetworkNamespace(netnsPath)
 
+	if sandboxPlatform == "windows/amd64" {
+		// Set the container hostname
+		g.SetHostname(sandboxConfig.GetHostname())
+	}
+
 	// Forward any annotations from the orchestrator
 	for k, v := range config.Annotations {
 		g.AddAnnotation(k, v)
