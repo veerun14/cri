@@ -76,18 +76,20 @@ func (c *criService) getSandboxMetrics(
 			Annotations: meta.Config.GetAnnotations(),
 		},
 	}
-	v, err := typeurl.UnmarshalAny(stats.Data)
-	if err != nil {
-		return nil, err
-	}
-	if s, ok := v.(*runhcsstats.Statistics); ok {
-		cs.Cpu = &runtime.CpuUsage{
-			Timestamp:            stats.Timestamp.UnixNano(),
-			UsageCoreNanoSeconds: &runtime.UInt64Value{s.VM.Processor.TotalRuntimeNS},
+	if stats != nil {
+		v, err := typeurl.UnmarshalAny(stats.Data)
+		if err != nil {
+			return nil, err
 		}
-		cs.Memory = &runtime.MemoryUsage{
-			Timestamp:       stats.Timestamp.UnixNano(),
-			WorkingSetBytes: &runtime.UInt64Value{s.VM.Memory.WorkingSetBytes},
+		if s, ok := v.(*runhcsstats.Statistics); ok {
+			cs.Cpu = &runtime.CpuUsage{
+				Timestamp:            stats.Timestamp.UnixNano(),
+				UsageCoreNanoSeconds: &runtime.UInt64Value{s.VM.Processor.TotalRuntimeNS},
+			}
+			cs.Memory = &runtime.MemoryUsage{
+				Timestamp:       stats.Timestamp.UnixNano(),
+				WorkingSetBytes: &runtime.UInt64Value{s.VM.Memory.WorkingSetBytes},
+			}
 		}
 	}
 	return cs, nil
