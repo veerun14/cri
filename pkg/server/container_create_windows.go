@@ -459,9 +459,35 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 		for _, group := range securityContext.GetSupplementalGroups() {
 			g.AddProcessAdditionalGid(uint32(group))
 		}
-		setOCINamespaces(&g, securityContext.GetNamespaceOptions(), sandboxPid)
 		g.SetProcessNoNewPrivileges(securityContext.GetNoNewPrivs())
+
+		if c.config.DisableCgroup {
+			g.SetLinuxCgroupsPath("")
+		} else {
+			setOCILinuxResourceCgroup(&g, config.GetLinux().GetResources())
+			// LCOW does not support custom cgroup parents. Set it to empty here
+			// and let the GCS place it as the parent of the sandbox.
+			g.SetLinuxCgroupsPath("")
+		}
+		// TODO: JTERRY75 - c.config.RestrictOOMScoreAdj needs to be proxied to LCOW
+		if err := setOCILinuxResourceOOMScoreAdj(&g, config.GetLinux().GetResources(), false); err != nil {
+			return nil, err
+		}
+
+		setOCINamespaces(&g, securityContext.GetNamespaceOptions(), sandboxPid)
 	} else {
+		resources := config.GetWindows().GetResources()
+		if resources != nil {
+			shares := uint16(resources.GetCpuShares())
+			count := uint64(resources.GetCpuCount())
+			maximum := uint16(resources.GetCpuMaximum())
+			g.SetWindowsResourcesCPU(runtimespec.WindowsCPUResources{
+				Shares:  &shares,
+				Count:   &count,
+				Maximum: &maximum,
+			})
+			g.SetWindowsResourcesMemoryLimit(uint64(resources.GetMemoryLimitInBytes()))
+		}
 		username := config.GetWindows().GetSecurityContext().GetRunAsUsername()
 		if username != "" {
 			g.SetProcessUsername(username)

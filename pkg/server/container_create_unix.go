@@ -30,6 +30,7 @@ import (
 	"github.com/containerd/containerd/containers"
 	"github.com/containerd/containerd/contrib/apparmor"
 	"github.com/containerd/containerd/contrib/seccomp"
+	"github.com/containerd/containerd/log"
 	"github.com/containerd/containerd/mount"
 	"github.com/containerd/containerd/oci"
 	"github.com/davecgh/go-spew/spew"
@@ -39,7 +40,6 @@ import (
 	"github.com/opencontainers/runtime-tools/validate"
 	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"github.com/syndtr/gocapability/capability"
 	"golang.org/x/net/context"
 	"golang.org/x/sys/unix"
@@ -688,37 +688,6 @@ func (c *criService) addOCIBindMounts(g *generator, mounts []*runtime.Mount, mou
 			Options:     options,
 		})
 	}
-
-	return nil
-}
-
-// setOCILinuxResourceCgroup set container cgroup resource limit.
-func setOCILinuxResourceCgroup(g *generator, resources *runtime.LinuxContainerResources) {
-	if resources == nil {
-		return
-	}
-	g.SetLinuxResourcesCPUPeriod(uint64(resources.GetCpuPeriod()))
-	g.SetLinuxResourcesCPUQuota(resources.GetCpuQuota())
-	g.SetLinuxResourcesCPUShares(uint64(resources.GetCpuShares()))
-	g.SetLinuxResourcesMemoryLimit(resources.GetMemoryLimitInBytes())
-	g.SetLinuxResourcesCPUCpus(resources.GetCpusetCpus())
-	g.SetLinuxResourcesCPUMems(resources.GetCpusetMems())
-}
-
-// setOCILinuxResourceOOMScoreAdj set container OOMScoreAdj resource limit.
-func setOCILinuxResourceOOMScoreAdj(g *generator, resources *runtime.LinuxContainerResources, restrictOOMScoreAdjFlag bool) error {
-	if resources == nil {
-		return nil
-	}
-	adj := int(resources.GetOomScoreAdj())
-	if restrictOOMScoreAdjFlag {
-		var err error
-		adj, err = restrictOOMScoreAdj(adj)
-		if err != nil {
-			return err
-		}
-	}
-	g.SetProcessOOMScoreAdj(adj)
 
 	return nil
 }

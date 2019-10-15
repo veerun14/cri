@@ -89,6 +89,37 @@ func clearReadOnly(m *runtimespec.Mount) {
 	m.Options = append(opt, "rw")
 }
 
+// setOCILinuxResourceCgroup set container cgroup resource limit.
+func setOCILinuxResourceCgroup(g *generator, resources *runtime.LinuxContainerResources) {
+	if resources == nil {
+		return
+	}
+	g.SetLinuxResourcesCPUPeriod(uint64(resources.GetCpuPeriod()))
+	g.SetLinuxResourcesCPUQuota(resources.GetCpuQuota())
+	g.SetLinuxResourcesCPUShares(uint64(resources.GetCpuShares()))
+	g.SetLinuxResourcesMemoryLimit(resources.GetMemoryLimitInBytes())
+	g.SetLinuxResourcesCPUCpus(resources.GetCpusetCpus())
+	g.SetLinuxResourcesCPUMems(resources.GetCpusetMems())
+}
+
+// setOCILinuxResourceOOMScoreAdj set container OOMScoreAdj resource limit.
+func setOCILinuxResourceOOMScoreAdj(g *generator, resources *runtime.LinuxContainerResources, restrictOOMScoreAdjFlag bool) error {
+	if resources == nil {
+		return nil
+	}
+	adj := int(resources.GetOomScoreAdj())
+	if restrictOOMScoreAdjFlag {
+		var err error
+		adj, err = restrictOOMScoreAdj(adj)
+		if err != nil {
+			return err
+		}
+	}
+	g.SetProcessOOMScoreAdj(adj)
+
+	return nil
+}
+
 func setOCIBindMountsPrivileged(g *generator) {
 	spec := g.Config
 	// clear readonly for /sys and cgroup
