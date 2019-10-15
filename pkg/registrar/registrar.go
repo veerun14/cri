@@ -100,3 +100,10 @@ func (r *Registrar) ReleaseByKey(key string) {
 	delete(r.nameToKey, name)
 	delete(r.keyToName, key)
 }
+
+func (r *Registrar) GetIDFromName(name string) string {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
+	return r.nameToKey[name]
+}

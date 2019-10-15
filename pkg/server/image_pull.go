@@ -98,10 +98,27 @@ func (c *criService) PullImage(ctx context.Context, r *runtime.PullImageRequest)
 	// image has already been converted.
 	isSchema1 := desc.MediaType == containerdimages.MediaTypeDockerSchema1Manifest
 
+	sbConfig := r.GetSandboxConfig()
+	if sbConfig != nil && sbConfig.Labels["sandbox-platform"] == "" {
+		// If the passed in config doesnt have the platform try and append it
+		// via the sandbox metadata.
+		if sbConfig.Metadata != nil {
+			sbID := c.sandboxNameIndex.GetIDFromName(makeSandboxName(sbConfig.Metadata))
+			if sbID != "" {
+				if sb, err := c.sandboxStore.Get(sbID); err == nil {
+					platform := "windows/amd64"
+					if sb.RuntimeHandler == "runhcs-lcow" {
+						platform = "linux/amd64"
+					}
+					sbConfig.Labels["sandbox-platform"] = platform
+				}
+			}
+		}
+	}
 	image, err := c.client.Pull(ctx, ref,
 		containerd.WithSchema1Conversion,
 		containerd.WithResolver(resolver),
-		containerd.WithPullSnapshotter(c.getDefaultSnapshotterForSandbox(r.GetSandboxConfig())),
+		containerd.WithPullSnapshotter(c.getDefaultSnapshotterForSandbox(sbConfig)),
 		containerd.WithPullUnpack,
 	)
 	if err != nil {
