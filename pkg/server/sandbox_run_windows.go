@@ -324,6 +324,15 @@ func (c *criService) generateSandboxContainerSpec(id string, config *runtime.Pod
 	g.SetHostname(config.GetHostname())
 
 	if sandboxPlatform == "linux/amd64" {
+		// Set cgroups parent.
+		if c.config.DisableCgroup {
+			g.SetLinuxCgroupsPath("")
+		} else {
+			if config.GetLinux().GetCgroupParent() != "" {
+				return nil, errors.New("lcow does not support custom cgroup parents")
+			}
+		}
+
 		g.SetProcessUsername(imageConfig.User)
 
 		securityContext := config.GetLinux().GetSecurityContext()
