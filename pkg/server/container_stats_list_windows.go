@@ -55,8 +55,34 @@ func (c *criService) getContainerMetrics(
 		Annotations: meta.Config.GetAnnotations(),
 	}
 
-	// TODO: JTERRY75 process stats for Windows
-
+	if stats != nil {
+		v, err := typeurl.UnmarshalAny(stats.Data)
+		if err != nil {
+			return nil, err
+		}
+		if containerStats, ok := v.(*runhcsstats.Statistics); ok {
+			timestamp := stats.Timestamp.UnixNano()
+			if s := containerStats.GetWindows(); s != nil {
+				cs.Cpu = &runtime.CpuUsage{
+					Timestamp:            timestamp,
+					UsageCoreNanoSeconds: &runtime.UInt64Value{Value: s.Processor.TotalRuntimeNS},
+				}
+				cs.Memory = &runtime.MemoryUsage{
+					Timestamp:       timestamp,
+					WorkingSetBytes: &runtime.UInt64Value{Value: s.Memory.MemoryUsagePrivateWorkingSetBytes},
+				}
+			} else if s := containerStats.GetLinux(); s != nil {
+				cs.Cpu = &runtime.CpuUsage{
+					Timestamp:            timestamp,
+					UsageCoreNanoSeconds: &runtime.UInt64Value{Value: s.CPU.Usage.Total},
+				}
+				cs.Memory = &runtime.MemoryUsage{
+					Timestamp:       timestamp,
+					WorkingSetBytes: &runtime.UInt64Value{Value: getWorkingSet(s.Memory)},
+				}
+			}
+		}
+	}
 	return &cs, nil
 }
 
@@ -82,13 +108,14 @@ func (c *criService) getSandboxMetrics(
 			return nil, err
 		}
 		if s, ok := v.(*runhcsstats.Statistics); ok {
+			timestamp := stats.Timestamp.UnixNano()
 			cs.Cpu = &runtime.CpuUsage{
-				Timestamp:            stats.Timestamp.UnixNano(),
-				UsageCoreNanoSeconds: &runtime.UInt64Value{s.VM.Processor.TotalRuntimeNS},
+				Timestamp:            timestamp,
+				UsageCoreNanoSeconds: &runtime.UInt64Value{Value: s.VM.Processor.TotalRuntimeNS},
 			}
 			cs.Memory = &runtime.MemoryUsage{
-				Timestamp:       stats.Timestamp.UnixNano(),
-				WorkingSetBytes: &runtime.UInt64Value{s.VM.Memory.WorkingSetBytes},
+				Timestamp:       timestamp,
+				WorkingSetBytes: &runtime.UInt64Value{Value: s.VM.Memory.WorkingSetBytes},
 			}
 		}
 	}
