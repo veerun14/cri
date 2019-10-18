@@ -79,17 +79,3 @@ func (c *criService) getContainerMetrics(
 
 	return &cs, nil
 }
-
-// getWorkingSet calculates workingset memory from cgroup memory stats.
-// The caller should make sure memory is not nil.
-// workingset = usage - total_inactive_file
-func getWorkingSet(memory *cgroups.MemoryStat) uint64 {
-	if memory.Usage == nil {
-		return 0
-	}
-	var workingSet uint64
-	if memory.TotalInactiveFile < memory.Usage.Usage {
-		workingSet = memory.Usage.Usage - memory.TotalInactiveFile
-	}
-	return workingSet
-}

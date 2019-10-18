@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	v1 "github.com/containerd/cgroups/stats/v1"
 	tasks "github.com/containerd/containerd/api/services/tasks/v1"
 	"github.com/containerd/cri/pkg/store"
 	"github.com/containerd/cri/pkg/store/container"
@@ -67,4 +68,18 @@ func (c *criService) ContainerStats(ctx context.Context, in *runtime.ContainerSt
 	}
 
 	return &runtime.ContainerStatsResponse{Stats: cs}, nil
+}
+
+// getWorkingSet calculates workingset memory from cgroup memory stats.
+// The caller should make sure memory is not nil.
+// workingset = usage - total_inactive_file
+func getWorkingSet(memory *v1.MemoryStat) uint64 {
+	if memory.Usage == nil {
+		return 0
+	}
+	var workingSet uint64
+	if memory.TotalInactiveFile < memory.Usage.Usage {
+		workingSet = memory.Usage.Usage - memory.TotalInactiveFile
+	}
+	return workingSet
 }
