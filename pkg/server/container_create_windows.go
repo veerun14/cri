@@ -358,6 +358,19 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 				return nil, errors.Errorf(`sandbox://' mounts are only supported for LCOW`, src)
 			}
 			mountType = "bind"
+		} else if strings.Contains(src, "kubernetes.io~empty-dir") {
+			if sandboxPlatform != "linux/amd64" {
+				return nil, errors.Errorf(`kubernetes.io~empty-dir mounts are only supported for LCOW`, src)
+			}
+
+			subpaths := strings.SplitAfter(src, "kubernetes.io~empty-dir")
+			if len(subpaths) < 2 {
+				return nil, errors.Errorf("emptyDir %s must specify a source path", src)
+			}
+			// convert kubernetes.io~empty-dir into a sandbox mount
+			mountType = "bind"
+			formattedSource := subpaths[1]
+			src = fmt.Sprintf("sandbox://%s", formattedSource)
 		} else if strings.HasPrefix(src, "automanage-vhd://") {
 			formattedSource, err := filepath.EvalSymlinks(strings.TrimPrefix(src, "automanage-vhd://"))
 			if err != nil {
