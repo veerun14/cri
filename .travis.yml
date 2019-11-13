@@ -3,7 +3,7 @@ git:
 
 language: go
 go:
-  - 1.11.x
+  - 1.13.4
   - tip
 
 matrix:
