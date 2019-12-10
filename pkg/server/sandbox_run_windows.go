@@ -19,6 +19,8 @@ limitations under the License.
 package server
 
 import (
+	"strconv"
+
 	runhcsoptions "github.com/Microsoft/hcsshim/cmd/containerd-shim-runhcs-v1/options"
 	"github.com/containerd/containerd"
 	containerdio "github.com/containerd/containerd/cio"
@@ -159,7 +161,7 @@ func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandbox
 	}()
 
 	// Create sandbox container.
-	spec, err := c.generateSandboxContainerSpec(id, config, sandboxPlatform, &image.ImageSpec.Config, sandbox.NetNSPath, rhcso.SandboxIsolation)
+	spec, err := c.generateSandboxContainerSpec(id, config, sandboxPlatform, &image.ImageSpec.Config, sandbox.NetNSPath, rhcso)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate sandbox container spec")
 	}
@@ -285,7 +287,7 @@ func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandbox
 }
 
 func (c *criService) generateSandboxContainerSpec(id string, config *runtime.PodSandboxConfig, sandboxPlatform string,
-	imageConfig *imagespec.ImageConfig, nsPath string, isolation runhcsoptions.Options_SandboxIsolation) (*runtimespec.Spec, error) {
+	imageConfig *imagespec.ImageConfig, nsPath string, options *runhcsoptions.Options) (*runtimespec.Spec, error) {
 	ctx := ctrdutil.NamespacedContext()
 	spec, err := oci.GenerateSpecWithPlatform(ctx, nil, sandboxPlatform, &containers.Container{ID: id})
 	if err != nil {
@@ -313,7 +315,7 @@ func (c *criService) generateSandboxContainerSpec(id string, config *runtime.Pod
 	// guest.
 	g.Config.Root = nil
 
-	if isolation == runhcsoptions.Options_HYPERVISOR {
+	if options.SandboxIsolation == runhcsoptions.Options_HYPERVISOR {
 		// TODO: JTERRY75 - This is a hack. Setting to the empty string will
 		// initialize the Windows.HyperV section which is really all we want.
 		g.SetWindowsHypervUntilityVMPath("")
@@ -360,6 +362,14 @@ func (c *criService) generateSandboxContainerSpec(id string, config *runtime.Pod
 	// Forward any annotations from the orchestrator
 	for k, v := range config.Annotations {
 		g.AddAnnotation(k, v)
+	}
+
+	if _, ok := config.Annotations[annotations.VMMemorySizeInMB]; !ok {
+		g.AddAnnotation(annotations.VMMemorySizeInMB, strconv.FormatInt(int64(options.VmMemorySizeInMb), 10))
+	}
+
+	if _, ok := config.Annotations[annotations.VmProcessorCount]; !ok {
+		g.AddAnnotation(annotations.VmProcessorCount, strconv.FormatInt(int64(options.VmProcessorCount), 10))
 	}
 
 	// Apply forcibly the sandbox annotations for this POD

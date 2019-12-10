@@ -32,6 +32,12 @@ const (
 	// SandboxID is the sandbox ID annotation
 	SandboxID = "io.kubernetes.cri.sandbox-id"
 
+	//VMMemorySizeInMB annotation represents the memory size of the virtual machine
+	VMMemorySizeInMB = "io.microsoft.virtualmachine.computetopology.memory.sizeinmb"
+
+	//VmProcessorCount annotation represents the processor count of the virtual machine
+	VmProcessorCount = "io.microsoft.virtualmachine.computetopology.processor.count"
+
 	// UntrustedWorkload is the sandbox annotation for untrusted workload. Untrusted
 	// workload can only run on dedicated runtime for untrusted workload.
 	UntrustedWorkload = "io.kubernetes.cri.untrusted-workload"
