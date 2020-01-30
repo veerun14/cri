@@ -31,6 +31,7 @@ import (
 	"github.com/containerd/containerd/containers"
 	"github.com/containerd/containerd/log"
 	"github.com/containerd/containerd/oci"
+	"github.com/containerd/containerd/platforms"
 	"github.com/containerd/containerd/snapshots"
 	"github.com/davecgh/go-spew/spew"
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -255,6 +256,11 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 	if err != nil {
 		return nil, err
 	}
+	plat, err := platforms.Parse(sandboxPlatform)
+	if plat.OS == "linux" {
+		// Remove default rlimits (See issue #515)
+		spec.Process.Rlimits = nil
+	}
 	g := newSpecGenerator(spec)
 
 	if err := setOCIProcessArgs(&g, config, imageConfig); err != nil {
@@ -268,7 +274,7 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 	}
 
 	g.SetProcessTerminal(config.GetTty())
-	if sandboxPlatform == "linux/amd64" {
+	if plat.OS == "linux" {
 		g.AddProcessEnv("TERM", "xterm")
 		if sandboxConfig.GetHostname() != "" {
 			g.AddProcessEnv(hostnameEnv, sandboxConfig.GetHostname())
@@ -291,7 +297,7 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 	// Set the Network Namespace
 	g.SetWindowsNetworkNamespace(netnsPath)
 
-	if sandboxPlatform == "windows/amd64" {
+	if plat.OS == "windows" {
 		// Set the container hostname
 		g.SetHostname(sandboxConfig.GetHostname())
 	}
@@ -309,7 +315,7 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 	for _, m := range config.GetMounts() {
 		src := m.HostPath
 		var destination string
-		if sandboxPlatform == "linux/amd64" {
+		if plat.OS == "linux" {
 			destination = strings.Replace(m.ContainerPath, "\\", "/", -1)
 			//kubelet will prepend c: if it's running on Windows and there's no drive letter, so we need to strip it out
 			if match, _ := regexp.MatchString("^[A-Za-z]:", destination); match {
@@ -321,7 +327,7 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 
 		var mountType string
 		var options []string
-		if sandboxPlatform == "linux/amd64" {
+		if plat.OS == "linux" {
 			options = append(options, "rbind")
 			switch m.GetPropagation() {
 			case runtime.MountPropagation_PROPAGATION_PRIVATE:
@@ -349,7 +355,7 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 		if strings.HasPrefix(src, `\\.\PHYSICALDRIVE`) {
 			mountType = "physical-disk"
 		} else if strings.HasPrefix(src, `\\.\pipe`) {
-			if sandboxPlatform == "linux/amd64" {
+			if plat.OS == "linux" {
 				return nil, errors.Errorf(`pipe mount.HostPath '%s' not supported for LCOW`, src)
 			}
 		} else if strings.HasPrefix(src, "sandbox://") {
@@ -431,7 +437,7 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 				return nil, errors.Wrapf(err, "failed to Stat mount.HostPath '%s'", formattedSource)
 			}
 			src = formattedSource
-			if sandboxPlatform == "linux/amd64" {
+			if plat.OS == "linux" {
 				mountType = "bind"
 			}
 		}
@@ -444,7 +450,7 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 		})
 	}
 
-	if sandboxPlatform == "linux/amd64" {
+	if plat.OS == "linux" {
 		securityContext := config.GetLinux().GetSecurityContext()
 		if securityContext.GetPrivileged() {
 			if !sandboxConfig.GetLinux().GetSecurityContext().GetPrivileged() {
