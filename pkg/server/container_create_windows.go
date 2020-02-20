@@ -494,6 +494,10 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 		}
 
 		setOCINamespaces(&g, securityContext.GetNamespaceOptions(), sandboxPid)
+
+		// hyperv pci devices are exposed as windows devices on the container spec
+		// given to hcsshim. currently this is only supported on LCOW.
+		addOCIWindowsDevices(&g, config.Devices)
 	} else {
 		resources := config.GetWindows().GetResources()
 		if resources != nil {
@@ -514,6 +518,19 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 	}
 
 	return g.Config, nil
+}
+
+func addOCIWindowsDevices(g *generator, devs []*runtime.Device) {
+	for _, device := range devs {
+		if strings.HasPrefix(device.HostPath, "gpu://") {
+			gpuID := strings.TrimPrefix(device.HostPath, "gpu://")
+			gpuDevice := runtimespec.WindowsDevice{
+				ID:     gpuID,
+				IDType: "gpu",
+			}
+			g.Config.Windows.Devices = append(g.Config.Windows.Devices, gpuDevice)
+		}
+	}
 }
 
 // setOCIDevicesPrivileged set device mapping with privilege.
