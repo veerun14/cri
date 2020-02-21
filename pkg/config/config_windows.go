@@ -43,7 +43,7 @@ func DefaultConfig() PluginConfig {
 			TLSKeyFile:  "",
 			TLSCertFile: "",
 		},
-		SandboxImage:            "mcr.microsoft.com/windows/nanoserver:1809", // "k8s.gcr.io/pause:3.1",
+		SandboxImage:            "mcr.microsoft.com/windows/nanoserver:1809", // "k8s.gcr.io/pause:3.2",
 		StatsCollectPeriod:      10,
 		MaxContainerLogLineSize: 16 * 1024,
 		Registry: Registry{
