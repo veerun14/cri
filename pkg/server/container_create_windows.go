@@ -494,10 +494,6 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 		}
 
 		setOCINamespaces(&g, securityContext.GetNamespaceOptions(), sandboxPid)
-
-		// hyperv pci devices are exposed as windows devices on the container spec
-		// given to hcsshim. currently this is only supported on LCOW.
-		addOCIWindowsDevices(&g, config.Devices)
 	} else {
 		resources := config.GetWindows().GetResources()
 		if resources != nil {
@@ -517,20 +513,41 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 		}
 	}
 
+	// For both LCOW and WCOW, devices are passed through from the host to the
+	// container via the OCI Windows.Devices field
+	if err := addOCIWindowsDevices(&g, config.Devices); err != nil {
+		return nil, err
+	}
+
 	return g.Config, nil
 }
 
-func addOCIWindowsDevices(g *generator, devs []*runtime.Device) {
-	for _, device := range devs {
-		if strings.HasPrefix(device.HostPath, "gpu://") {
-			gpuID := strings.TrimPrefix(device.HostPath, "gpu://")
-			gpuDevice := runtimespec.WindowsDevice{
-				ID:     gpuID,
-				IDType: "gpu",
-			}
-			g.Config.Windows.Devices = append(g.Config.Windows.Devices, gpuDevice)
-		}
+// getWindowsDeviceInfo is a helper function that returns a spec specified device's
+// prefix and device identifier. A prefix is any string before "://" in the spec
+// device's `HostPath`.
+func getWindowsDeviceInfo(hostPath string) (string, string, error) {
+	substrings := strings.SplitN(hostPath, "://", 2)
+	if len(substrings) <= 1 {
+		return "", "", fmt.Errorf("failed to parse device information for %s", hostPath)
 	}
+	return substrings[0], substrings[1], nil
+}
+
+// addOCIWindowsDevices parses the devices field on the spec and creates corresponding
+// `WindowsDevice` on the container config if valid.
+func addOCIWindowsDevices(g *generator, devs []*runtime.Device) error {
+	for _, device := range devs {
+		prefix, deviceIdentifier, err := getWindowsDeviceInfo(device.HostPath)
+		if err != nil {
+			return err
+		}
+		device := runtimespec.WindowsDevice{
+			ID:     deviceIdentifier,
+			IDType: prefix,
+		}
+		g.Config.Windows.Devices = append(g.Config.Windows.Devices, device)
+	}
+	return nil
 }
 
 // setOCIDevicesPrivileged set device mapping with privilege.
