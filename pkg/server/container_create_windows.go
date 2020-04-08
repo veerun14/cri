@@ -39,7 +39,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
-	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
+	runtime "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 
 	"github.com/containerd/cri/pkg/annotations"
 	criconfig "github.com/containerd/cri/pkg/config"
@@ -511,9 +511,17 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 			})
 			g.SetWindowsResourcesMemoryLimit(uint64(resources.GetMemoryLimitInBytes()))
 		}
-		username := config.GetWindows().GetSecurityContext().GetRunAsUsername()
-		if username != "" {
-			g.SetProcessUsername(username)
+
+		securityContext := config.GetWindows().GetSecurityContext()
+		if securityContext != nil {
+			username := securityContext.GetRunAsUsername()
+			if username != "" {
+				g.SetProcessUsername(username)
+			}
+			cs := securityContext.GetCredentialSpec()
+			if cs != "" {
+				g.Config.Windows.CredentialSpec = cs
+			}
 		}
 	}
 
