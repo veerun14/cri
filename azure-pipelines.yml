@@ -1,0 +1,27 @@
+trigger: 
+ - windows_port
+
+pool:
+   vmImage: 'windows-2019'
+
+steps: 
+- task: GoTool@0
+  displayName: 'Install Go'
+  inputs:
+    version: '1.13.5'
+- task: Go@0
+  displayName: 'Build containerd'
+  inputs:
+    command: 'build'
+    arguments: '-a -v -o $(Build.ArtifactStagingDirectory) github.com/containerd/cri/cmd/containerd'
+    workingDirectory: '$(System.DefaultWorkingDirectory)'
+- task: Go@0
+  displayName: 'Build ctr'
+  inputs:
+    command: 'build'
+    arguments: '-a -v -o $(Build.ArtifactStagingDirectory) github.com/containerd/cri/cmd/ctr'
+    workingDirectory: '$(System.DefaultWorkingDirectory)'
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish build artifacts'
+  inputs:
+     artifactName: drop
